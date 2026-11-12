@@ -17,7 +17,6 @@ site/
 .travis.yml
 CONTRIBUTING.md
 MANIFEST.in
-README.md
 freqtrade.service
 freqtrade.service.watchdog
 freqtrade.egg-info
