@@ -17,7 +17,6 @@ import pandas as pd
 from .signal_engine import signal_engine
 from .smc_engine import smc_engine
 from .supply_demand import supply_demand_engine
-from .technical_analysis import compute_indicators
 
 
 @dataclass
@@ -38,12 +37,28 @@ class BacktestTrade:
     mfe_pct: float  # Maximum Favorable Excursion
     exit_reason: str  # 'TAKE_PROFIT', 'STOP_LOSS', 'END_OF_DATA'
     duration_candles: int
+    r_multiple: float = 0.0
+    fees_usd: float = 0.0
+    slippage_usd: float = 0.0
+    funding_usd: float = 0.0
 
 
 class BacktestEngine:
-    def __init__(self, fee_pct: float = 0.001, slippage_pct: float = 0.0005) -> None:
+    def __init__(self, fee_pct: float = 0.0005, slippage_pct: float = 0.0004, funding_8h_pct: float = 0.0001) -> None:
         self.fee_pct = fee_pct
         self.slippage_pct = slippage_pct
+        self.funding_8h_pct = funding_8h_pct
+
+    @staticmethod
+    def _prec(val: float) -> int:
+        aval = abs(val)
+        if aval < 0.01:
+            return 6
+        if aval < 1.0:
+            return 5
+        if aval < 50.0:
+            return 4
+        return 2
 
     def run_backtest(
         self,
@@ -53,40 +68,81 @@ class BacktestEngine:
         starting_capital: float = 1000.0,
         risk_per_trade_pct: float = 1.5,
     ) -> dict:
-        """Executes a sequential bar-by-bar backtest over the candle dataset with MAE/MFE and regime breakdowns."""
+        """Executes a sequential bar-by-bar non-repainting backtest with conservative execution."""
         if not candles or len(candles) < 50:
             return {"error": "Insufficient candles for backtesting (minimum 50 required)"}
 
+        tf_hours_map = {"1m": 1/60, "3m": 0.05, "5m": 1/12, "15m": 0.25, "30m": 0.5, "1h": 1.0, "2h": 2.0, "4h": 4.0, "6h": 6.0, "12h": 12.0, "1d": 24.0}
+        bar_hours = tf_hours_map.get(timeframe, 0.25)
+
         df = pd.DataFrame(candles)
+        candles_list = list(candles)
         n = len(df)
+        split_bar_idx = int(n * 0.70)
         balance = starting_capital
         equity_curve = [{"time": int(df["time"].iloc[0]), "equity": round(balance, 2)}]
         trades: list[BacktestTrade] = []
+        pending_signal = None
         active_trade = None
         trade_counter = 1
 
-        # EMA 50 & 200 for market regime classification
         closes = df["close"].astype(float)
+        highs = df["high"].astype(float)
+        lows = df["low"].astype(float)
         ema_50 = closes.ewm(span=50, adjust=False).mean()
         ema_200 = closes.ewm(span=200, adjust=False).mean()
+
+        delta = closes.diff()
+        avg_gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+        avg_loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+        rsi_series = 100.0 - (100.0 / (1.0 + avg_gain / (avg_loss + 1e-10)))
+
+        tr = pd.concat([
+            highs - lows,
+            (highs - closes.shift(1)).abs(),
+            (lows - closes.shift(1)).abs(),
+        ], axis=1).max(axis=1)
+        atr_series = tr.ewm(alpha=1 / 14, adjust=False).mean()
 
         warmup = 35
 
         for i in range(warmup, n):
             current_candle = df.iloc[i]
+            c_open = float(current_candle["open"])
             c_high = float(current_candle["high"])
             c_low = float(current_candle["low"])
             c_close = float(current_candle["close"])
             c_time = int(current_candle["time"])
 
-            # 1. Manage Active Trade
+            # 0. Execute pending signal at bar i OPEN (zero look-ahead)
+            if active_trade is None and pending_signal is not None:
+                is_long = pending_signal["direction"] == "LONG"
+                fill_entry = c_open * (1.0 + self.slippage_pct) if is_long else c_open * (1.0 - self.slippage_pct)
+                sl = float(pending_signal["stop_loss"])
+                tp = float(pending_signal["take_profit"])
+                valid_order = (is_long and sl < fill_entry < tp) or (not is_long and tp < fill_entry < sl)
+                if valid_order:
+                    active_trade = {
+                        "direction": pending_signal["direction"],
+                        "model_name": pending_signal["model_name"],
+                        "regime": pending_signal["regime"],
+                        "entry_price": fill_entry,
+                        "stop_loss": sl,
+                        "take_profit": tp,
+                        "entry_time": c_time,
+                        "entry_index": i,
+                        "min_adverse": 0.0,
+                        "max_favorable": 0.0,
+                    }
+                pending_signal = None
+
+            # 1. Manage Active Trade (check SL FIRST to eliminate intra-bar optimism)
             if active_trade is not None:
                 is_long = active_trade["direction"] == "LONG"
                 entry = active_trade["entry_price"]
                 sl = active_trade["stop_loss"]
                 tp = active_trade["take_profit"]
 
-                # Update MAE / MFE
                 if is_long:
                     adverse = (c_low - entry) / entry * 100
                     favorable = (c_high - entry) / entry * 100
@@ -102,19 +158,19 @@ class BacktestEngine:
                 exit_price = 0.0
 
                 if is_long:
-                    if c_high >= tp:
-                        hit_tp = True
-                        exit_price = tp * (1.0 - self.slippage_pct)
-                    elif c_low <= sl:
+                    if c_low <= sl:
                         hit_sl = True
                         exit_price = sl * (1.0 - self.slippage_pct)
-                else:
-                    if c_low <= tp:
+                    elif c_high >= tp:
                         hit_tp = True
-                        exit_price = tp * (1.0 + self.slippage_pct)
-                    elif c_high >= sl:
+                        exit_price = tp * (1.0 - self.slippage_pct)
+                else:
+                    if c_high >= sl:
                         hit_sl = True
                         exit_price = sl * (1.0 + self.slippage_pct)
+                    elif c_low <= tp:
+                        hit_tp = True
+                        exit_price = tp * (1.0 + self.slippage_pct)
 
                 if hit_tp or hit_sl:
                     if is_long:
@@ -122,11 +178,22 @@ class BacktestEngine:
                     else:
                         gross_pnl_pct = (entry - exit_price) / entry
 
-                    net_pnl_pct = gross_pnl_pct - (self.fee_pct * 2)
-                    trade_risk_usd = balance * (risk_per_trade_pct / 100.0)
-                    dollar_pnl = trade_risk_usd * (net_pnl_pct / (abs(entry - sl) / entry + 1e-6))
-                    balance += dollar_pnl
+                    dur_bars = max(1, i - active_trade["entry_index"])
+                    funding_periods = (dur_bars * bar_hours) / 8.0
+                    funding_cost_pct = funding_periods * self.funding_8h_pct
+                    net_pnl_pct = gross_pnl_pct - (self.fee_pct * 2) - funding_cost_pct
 
+                    trade_risk_usd = balance * (risk_per_trade_pct / 100.0)
+                    stop_dist_pct = max(abs(entry - sl) / entry, 1e-4)
+                    notional_usd = trade_risk_usd / stop_dist_pct
+                    fees_usd = round(notional_usd * (self.fee_pct * 2), 2)
+                    slip_usd = round(notional_usd * (self.slippage_pct * 2), 2)
+                    fund_usd = round(notional_usd * funding_cost_pct, 2)
+                    r_mult = round(net_pnl_pct / stop_dist_pct, 2)
+                    dollar_pnl = trade_risk_usd * (net_pnl_pct / stop_dist_pct)
+                    balance = max(0.0, balance + dollar_pnl)
+
+                    p_prec = self._prec(entry)
                     trades.append(
                         BacktestTrade(
                             trade_id=trade_counter,
@@ -135,28 +202,39 @@ class BacktestEngine:
                             direction=active_trade["direction"],
                             model_name=active_trade["model_name"],
                             regime=active_trade["regime"],
-                            entry_price=round(entry, 2),
-                            exit_price=round(exit_price, 2),
-                            stop_loss=round(sl, 2),
-                            take_profit=round(tp, 2),
+                            entry_price=round(entry, p_prec),
+                            exit_price=round(exit_price, p_prec),
+                            stop_loss=round(sl, p_prec),
+                            take_profit=round(tp, p_prec),
                             pnl_net=round(dollar_pnl, 2),
                             pnl_pct=round(net_pnl_pct * 100, 2),
                             mae_pct=round(active_trade["min_adverse"], 2),
                             mfe_pct=round(active_trade["max_favorable"], 2),
                             exit_reason="TAKE_PROFIT" if hit_tp else "STOP_LOSS",
-                            duration_candles=i - active_trade["entry_index"],
+                            duration_candles=dur_bars,
+                            r_multiple=r_mult,
+                            fees_usd=fees_usd,
+                            slippage_usd=slip_usd,
+                            funding_usd=fund_usd,
                         )
                     )
                     trade_counter += 1
                     active_trade = None
                     equity_curve.append({"time": c_time, "equity": round(balance, 2)})
 
-            # 2. Check for New Signal if no active trade
-            if active_trade is None and i < n - 1:
-                hist_slice = df.iloc[: i + 1].to_dict(orient="records")
+            # 2. Check for New Signal strictly on completed history [:i+1], execute next bar
+            if active_trade is None and pending_signal is None and i < n - 1:
+                hist_slice = candles_list[max(0, i + 1 - 240) : i + 1]
                 sd = supply_demand_engine.detect_zones(hist_slice, timeframe=timeframe)
                 smc = smc_engine.analyze(hist_slice)
-                ind = compute_indicators(hist_slice)
+                ind = {
+                    "latest": {
+                        "ema_50": float(ema_50.iloc[i]),
+                        "ema_200": float(ema_200.iloc[i]),
+                        "atr": float(atr_series.iloc[i]),
+                        "rsi": float(rsi_series.iloc[i]),
+                    }
+                }
 
                 sig = signal_engine.evaluate(
                     pair=pair,
@@ -170,7 +248,6 @@ class BacktestEngine:
                 models = sig.get("models", {})
                 chosen_model = None
 
-                # Model evaluation precedence: Model B (Confirmation) > Model C (Conservative) > Model A (Aggressive)
                 if models.get("model_b_confirmation", {}).get("is_triggered"):
                     chosen_model = models["model_b_confirmation"]
                 elif models.get("model_c_conservative", {}).get("is_triggered"):
@@ -179,7 +256,6 @@ class BacktestEngine:
                     chosen_model = models["model_a_aggressive"]
 
                 if chosen_model and chosen_model.get("setup_score", 0) >= 60:
-                    # Classify market regime at entry
                     e50_val = ema_50.iloc[i]
                     e200_val = ema_200.iloc[i]
                     if c_close > e50_val > e200_val:
@@ -189,26 +265,34 @@ class BacktestEngine:
                     else:
                         regime = "RANGING"
 
-                    active_trade = {
+                    pending_signal = {
                         "direction": sig.get("direction", "LONG"),
                         "model_name": chosen_model.get("model_name"),
                         "regime": regime,
-                        "entry_price": chosen_model.get("entry_price", c_close),
                         "stop_loss": chosen_model.get("stop_loss"),
                         "take_profit": chosen_model.get("tp2"),
-                        "entry_time": c_time,
-                        "entry_index": i,
-                        "min_adverse": 0.0,
-                        "max_favorable": 0.0,
                     }
 
         # Close any lingering trade at end of data
         if active_trade is not None:
             last_close = float(df["close"].iloc[-1])
+            entry = active_trade["entry_price"]
             is_long = active_trade["direction"] == "LONG"
-            gross_pct = (last_close - active_trade["entry_price"]) / active_trade["entry_price"] if is_long else (active_trade["entry_price"] - last_close) / active_trade["entry_price"]
-            pnl_d = balance * 0.01 * gross_pct
-            balance += pnl_d
+            exit_p = last_close * (1.0 - self.slippage_pct) if is_long else last_close * (1.0 + self.slippage_pct)
+            gross_pct = (exit_p - entry) / entry if is_long else (entry - exit_p) / entry
+            dur_bars = max(1, n - 1 - active_trade["entry_index"])
+            funding_cost_pct = ((dur_bars * bar_hours) / 8.0) * self.funding_8h_pct
+            net_pct = gross_pct - (self.fee_pct * 2) - funding_cost_pct
+            stop_dist_pct = max(abs(entry - active_trade["stop_loss"]) / entry, 1e-4)
+            trade_risk_usd = balance * (risk_per_trade_pct / 100.0)
+            notional_usd = trade_risk_usd / stop_dist_pct
+            fees_usd = round(notional_usd * (self.fee_pct * 2), 2)
+            slip_usd = round(notional_usd * (self.slippage_pct * 2), 2)
+            fund_usd = round(notional_usd * funding_cost_pct, 2)
+            r_mult = round(net_pct / stop_dist_pct, 2)
+            pnl_d = trade_risk_usd * (net_pct / stop_dist_pct)
+            balance = max(0.0, balance + pnl_d)
+            p_prec = self._prec(entry)
             trades.append(
                 BacktestTrade(
                     trade_id=trade_counter,
@@ -217,18 +301,27 @@ class BacktestEngine:
                     direction=active_trade["direction"],
                     model_name=active_trade["model_name"],
                     regime=active_trade["regime"],
-                    entry_price=round(active_trade["entry_price"], 2),
-                    exit_price=round(last_close, 2),
-                    stop_loss=round(active_trade["stop_loss"], 2),
-                    take_profit=round(active_trade["take_profit"], 2),
+                    entry_price=round(entry, p_prec),
+                    exit_price=round(exit_p, p_prec),
+                    stop_loss=round(active_trade["stop_loss"], p_prec),
+                    take_profit=round(active_trade["take_profit"], p_prec),
                     pnl_net=round(pnl_d, 2),
-                    pnl_pct=round(gross_pct * 100, 2),
+                    pnl_pct=round(net_pct * 100, 2),
                     mae_pct=round(active_trade["min_adverse"], 2),
                     mfe_pct=round(active_trade["max_favorable"], 2),
                     exit_reason="END_OF_DATA",
-                    duration_candles=n - 1 - active_trade["entry_index"],
+                    duration_candles=dur_bars,
+                    r_multiple=r_mult,
+                    fees_usd=fees_usd,
+                    slippage_usd=slip_usd,
+                    funding_usd=fund_usd,
                 )
             )
+
+        # Chronological Out-of-Sample Walk-Forward split (70% / 30% by timestamp)
+        split_ts = int(df["time"].iloc[split_bar_idx])
+        is_trades = [t for t in trades if t.entry_time < split_ts]
+        oos_trades = [t for t in trades if t.entry_time >= split_ts]
 
         # Performance Metrics Calculation
         total_trades = len(trades)
@@ -238,7 +331,11 @@ class BacktestEngine:
 
         total_gain = sum(t.pnl_net for t in wins)
         total_loss = abs(sum(t.pnl_net for t in losses))
-        profit_factor = round(total_gain / total_loss, 2) if total_loss > 0 else (999.0 if total_gain > 0 else 0.0)
+        profit_factor = round(total_gain / total_loss, 2) if total_loss > 0 else None
+        avg_r = round(sum(t.r_multiple for t in trades) / total_trades, 2) if total_trades > 0 else 0.0
+        total_fees_usd = round(sum(t.fees_usd for t in trades), 2)
+        total_slip_usd = round(sum(t.slippage_usd for t in trades), 2)
+        total_fund_usd = round(sum(t.funding_usd for t in trades), 2)
 
         net_pnl = round(balance - starting_capital, 2)
         net_return_pct = round((net_pnl / starting_capital) * 100, 2)
@@ -300,17 +397,18 @@ class BacktestEngine:
                 "net_pnl": round(sum(t.pnl_net for t in r_trades), 2),
             }
 
-        # Walk-forward Split: In-sample 70% vs Out-of-sample 30%
-        split_idx = int(total_trades * 0.70)
-        is_trades = trades[:split_idx]
-        oos_trades = trades[split_idx:]
-
+        # Walk-forward Split metrics (based on chronological 70% In-Sample / 30% Out-of-Sample candles)
+        is_wins = [t for t in is_trades if t.pnl_net > 0]
+        oos_wins = [t for t in oos_trades if t.pnl_net > 0]
         is_pnl = sum(t.pnl_net for t in is_trades)
         oos_pnl = sum(t.pnl_net for t in oos_trades)
+        is_avg_r = round(sum(t.r_multiple for t in is_trades) / len(is_trades), 2) if is_trades else 0.0
+        oos_avg_r = round(sum(t.r_multiple for t in oos_trades) / len(oos_trades), 2) if oos_trades else 0.0
 
         return {
             "pair": pair,
             "timeframe": timeframe,
+            "candles_tested": n,
             "starting_capital": starting_capital,
             "final_balance": round(balance, 2),
             "net_pnl": net_pnl,
@@ -320,18 +418,37 @@ class BacktestEngine:
             "loss_count": len(losses),
             "win_rate": win_rate,
             "profit_factor": profit_factor,
+            "avg_r": avg_r,
+            "avg_r_multiple": avg_r,
             "expectancy_per_trade": expectancy,
             "max_drawdown_usd": round(max_dd_usd, 2),
             "max_drawdown_pct": round(max_dd_pct, 2),
             "max_consecutive_wins": max_consec_wins,
             "max_consecutive_losses": max_consec_losses,
+            "cost_assumptions": {
+                "fee_per_side_pct": round(self.fee_pct * 100, 3),
+                "slippage_per_side_pct": round(self.slippage_pct * 100, 3),
+                "funding_per_8h_pct": round(self.funding_8h_pct * 100, 3),
+            },
+            "costs_summary": {
+                "total_fees_usd": total_fees_usd,
+                "total_slippage_usd": total_slip_usd,
+                "total_funding_usd": total_fund_usd,
+                "total_costs_usd": round(total_fees_usd + total_slip_usd + total_fund_usd, 2),
+                "round_trip_fee_pct": round(self.fee_pct * 200, 3),
+                "round_trip_slippage_pct": round(self.slippage_pct * 200, 3),
+            },
             "model_comparison": model_stats,
             "regime_comparison": regime_stats,
             "walk_forward": {
                 "in_sample_trades": len(is_trades),
+                "in_sample_win_rate": round(len(is_wins) / len(is_trades) * 100, 1) if is_trades else 0.0,
                 "in_sample_pnl": round(is_pnl, 2),
+                "in_sample_avg_r": is_avg_r,
                 "out_of_sample_trades": len(oos_trades),
+                "out_of_sample_win_rate": round(len(oos_wins) / len(oos_trades) * 100, 1) if oos_trades else 0.0,
                 "out_of_sample_pnl": round(oos_pnl, 2),
+                "out_of_sample_avg_r": oos_avg_r,
             },
             "equity_curve": equity_curve,
             "trades": [asdict(t) for t in trades],

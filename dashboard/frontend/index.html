@@ -3,222 +3,296 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AlphaQuant AI Pro - Institutional Trading Terminal</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>AlphaQuant AI Pro - Crypto Intelligence & Live Trading Terminal</title>
+  <link rel="stylesheet" href="/static/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lightweight Charts Engine v5 -->
+  <script src="/static/js/lib/lightweight-charts.js"></script>
+  <!-- Markdown Renderer -->
+  <script src="/static/js/lib/marked.min.js"></script>
 </head>
 <body>
-  <div class="app-container">
+  <div class="app-terminal">
 
     <!-- ======================================================================
-         LEFT NAVIGATION SIDEBAR (48px wide, icon-based)
+         TOP NAVIGATION & TELEMETRY HEADER BAR (42px)
          ====================================================================== -->
-    <aside class="nav-sidebar" aria-label="Main Navigation">
-      <!-- Logo -->
-      <div class="nav-logo" id="nav-logo" title="AlphaQuant AI Pro Institutional Terminal">
-        <span>AQ</span>
+    <header class="terminal-nav-header">
+      <div class="nav-brand-section">
+        <div class="brand-badge" title="AlphaQuant AI Pro - Institutional Crypto Terminal">
+          <span class="brand-icon">AQ</span>
+          <span class="brand-text">ALPHAQUANT <span class="brand-sub">AI PRO</span></span>
+        </div>
       </div>
 
-      <!-- Navigation Icons -->
-      <nav class="nav-menu">
-        <!-- 1. Chart (Default View) -->
-        <button type="button" class="nav-item active" data-section="section-chart" data-tooltip="Terminal Chart" id="nav-chart" aria-label="Terminal Chart">
-          <svg viewBox="0 0 24 24"><path d="M7 3v4m0 10v4M7 7h4v10H7zm10-2v2m0 8v6m-4-12h4v6h-4z"/></svg>
-        </button>
-
-        <!-- 2. Scanner -->
-        <button type="button" class="nav-item" data-section="section-scanner" data-tooltip="Market Scanner" id="nav-scanner" aria-label="Market Scanner">
-          <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M9 4v16m6-16v16"/></svg>
-        </button>
-
-        <!-- 3. Signals -->
-        <button type="button" class="nav-item" data-section="section-signals" data-tooltip="Precision Signals" id="nav-signals" aria-label="Precision Signals">
-          <svg viewBox="0 0 24 24"><path d="M13 2L3 14h8l-2 8 10-12h-8l2-8z"/></svg>
-        </button>
-
-        <!-- 4. AI Analysis -->
-        <button type="button" class="nav-item" data-section="section-ai" data-tooltip="AI Institutional Analysis" id="nav-ai" aria-label="AI Analysis">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v4m0 8v4m-8-8h4m8 0h4m-8-3a3 3 0 100 6 3 3 0 000-6z"/></svg>
-        </button>
-
-        <!-- 5. Watchlist -->
-        <button type="button" class="nav-item" data-section="section-watchlist" data-tooltip="Watchlist" id="nav-watchlist" aria-label="Watchlist">
-          <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </button>
-
-        <!-- 6. Paper Trading -->
-        <button type="button" class="nav-item" data-section="section-paper" data-tooltip="Paper Trading" id="nav-paper" aria-label="Paper Trading">
-          <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6zm14 6h3m-3 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
-        </button>
-
-        <!-- 7. Backtesting -->
-        <button type="button" class="nav-item" data-section="section-backtest" data-tooltip="Backtest Engine" id="nav-backtest" aria-label="Backtesting">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-        </button>
-
-        <!-- 8. Performance -->
-        <button type="button" class="nav-item" data-section="section-performance" data-tooltip="Performance Analytics" id="nav-performance" aria-label="Performance Analytics">
-          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </button>
-
-        <!-- 9. Settings -->
-        <button type="button" class="nav-item" data-section="section-settings" data-tooltip="Settings & API" id="nav-settings" aria-label="Settings">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        </button>
+      <!-- 11 MAIN NAVIGATION SECTIONS -->
+      <nav class="terminal-nav-tabs" id="main-nav-tabs" aria-label="Terminal Navigation">
+        <button type="button" class="nav-tab-btn" data-view="view-overview" title="Executive Market Overview">Overview</button>
+        <button type="button" class="nav-tab-btn active" data-view="view-chart" title="Main Live Candlestick Chart">Main Chart</button>
+        <button type="button" class="nav-tab-btn" data-view="view-top100" title="Dynamic Top 100 Cryptocurrency Universe">Top 100 Crypto</button>
+        <button type="button" class="nav-tab-btn" data-view="view-scanner" title="17-Column Quantitative Market Scanner">Market Scanner</button>
+        <button type="button" class="nav-tab-btn" data-view="view-ai-analysis" title="Individual Coin Technical & AI Analysis">AI Analysis</button>
+        <button type="button" class="nav-tab-btn" data-view="view-signals" title="Live Precision Trading Signals & Plans">Trading Signals</button>
+        <button type="button" class="nav-tab-btn" data-view="view-watchlist" title="Custom Watchlists & Favorites">Watchlist</button>
+        <button type="button" class="nav-tab-btn" data-view="view-paper-trading" title="Simulated Paper Execution & Portfolio">Paper Trading</button>
+        <button type="button" class="nav-tab-btn" data-view="view-backtest" title="Historical Strategy Backtester">Backtesting</button>
+        <button type="button" class="nav-tab-btn" data-view="view-performance" title="Signal Performance & Statistical Validation">Performance Analytics</button>
+        <button type="button" class="nav-tab-btn" data-view="view-settings" title="Terminal & API Configuration">Settings</button>
       </nav>
 
-      <!-- Bottom Divider & Connection Indicator -->
-      <div class="nav-divider"></div>
-      <div class="nav-bottom">
-        <div class="sidebar-conn-dot" id="sidebar-conn-dot" title="WebSocket: Connecting..." aria-label="Connection Status"></div>
+      <!-- ACTIVE SYMBOL, TICKER & TELEMETRY -->
+      <div class="nav-telemetry-section">
+        <!-- Symbol Selector Trigger -->
+        <button type="button" id="btn-open-symbols" class="symbol-picker-btn" title="Click to search or switch trading pair">
+          <span id="header-symbol-text">BTC/USDT</span>
+          <span class="fs-xs text-dim">▼</span>
+        </button>
+
+        <!-- Live Price & 24h Change -->
+        <div class="ticker-stats-group">
+          <span id="ticker-price" class="live-price-val">--</span>
+          <span id="ticker-change" class="live-change-badge bg-up">+0.00%</span>
+        </div>
+
+        <div class="tv-divider"></div>
+
+        <!-- Connection Status Pill -->
+        <div class="market-status-pill" id="conn-status-pill" title="Binance USDⓈ-M Futures WebSocket">
+          <span id="conn-dot" class="status-dot"></span>
+          <span id="conn-text" class="text-dim">CONNECTING</span>
+        </div>
+
+        <!-- Last Update Timestamp -->
+        <div class="last-updated-pill" title="Last Market Data Update">
+          <span id="last-update-time" class="fs-xs font-mono text-dim">--:--:--</span>
+        </div>
+
+        <!-- Fullscreen Button -->
+        <button type="button" id="btn-toggle-fullscreen" class="header-action-btn" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+          <span>⛶</span>
+        </button>
       </div>
-    </aside>
+    </header>
 
     <!-- ======================================================================
-         MAIN CONTENT AREA (Multi-Section SPA)
+         MAIN VIEW CONTAINER (11 DEDICATED SECTIONS)
          ====================================================================== -->
-    <main class="main-content">
+    <main class="terminal-content-container">
 
-      <!-- ====================================================================
-           SECTION 1: CHART (Default Visible View)
-           ==================================================================== -->
-      <section class="section active" id="section-chart" aria-label="Trading Terminal Chart">
-        <!-- Top Toolbar (36px height) -->
-        <header class="chart-toolbar">
+      <!-- ==================================================================
+           SECTION 1: OVERVIEW
+           ================================================================== -->
+      <section id="view-overview" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Crypto Market Intelligence Overview</h1>
+              <p class="view-subtitle">Executive macro summary, top movers, market sentiment, and live quantitative signals.</p>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-overview">↻ Refresh Data</button>
+            </div>
+          </div>
+
+          <!-- KPI Cards Grid -->
+          <div class="stats-cards-grid">
+            <div class="stat-card">
+              <span class="stat-label">Discovered Futures Universe</span>
+              <span class="stat-value font-mono" id="stat-universe-count">--</span>
+              <span class="stat-sub text-dim">Binance USDⓈ-M Active Contracts</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Market Structure Sentiment</span>
+              <span class="stat-value font-mono text-green" id="stat-market-sentiment">BULLISH BIAS</span>
+              <span class="stat-sub text-dim" id="stat-sentiment-sub">Based on 1D/4H MTF Alignment</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Active Trade Opportunities</span>
+              <span class="stat-value font-mono text-blue" id="stat-active-signals">--</span>
+              <span class="stat-sub text-dim">Scanner LONG / SHORT candidates</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">24h Futures Total Volume</span>
+              <span class="stat-value font-mono" id="stat-total-volume">--</span>
+              <span class="stat-sub text-dim">Across analyzed contracts</span>
+            </div>
+          </div>
+
+          <div class="panel-card mt-12" id="market-telemetry">
+            <div class="panel-header">
+              <span class="panel-title">Market Data &amp; Signal Engine Health</span>
+            </div>
+            <div class="overview-grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));">
+              <div class="analysis-metric-row"><span>Eligible contracts</span><strong id="telemetry-eligible">--</strong></div>
+              <div class="analysis-metric-row"><span>Market data / freshness</span><strong id="telemetry-market-data">--</strong></div>
+              <div class="analysis-metric-row"><span>Chart WebSocket</span><strong id="telemetry-websocket">--</strong></div>
+              <div class="analysis-metric-row"><span>Scanner status</span><strong id="telemetry-scanner">--</strong></div>
+              <div class="analysis-metric-row"><span>Last completed scan</span><strong id="telemetry-last-scan">--</strong></div>
+              <div class="analysis-metric-row"><span>Signal states</span><strong id="telemetry-signals">--</strong></div>
+            </div>
+          </div>
+
+          <!-- 2-Column Overview Workspace -->
+          <div class="overview-grid mt-16">
+            <!-- Left: Top Gainers & Movers -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">🔥 Top Performers & Market Movers</span>
+                <span class="fs-xs text-dim">24h Price Change</span>
+              </div>
+              <div class="table-responsive">
+                <table class="terminal-table" id="table-overview-movers">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Symbol</th>
+                      <th>Coin</th>
+                      <th class="text-right">Price</th>
+                      <th class="text-right">24h Chg</th>
+                      <th class="text-right">Volume</th>
+                      <th>Signal</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-overview-movers">
+                    <tr><td colspan="8" class="text-center text-dim py-16">Loading market movers...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right: Active High-Conviction Signals -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">🎯 Live Trading Opportunities</span>
+                <span class="badge badge-emerald">Real-time S&amp;D</span>
+              </div>
+              <div id="overview-signals-stream" class="signals-stream-list">
+                <div class="text-center text-dim py-24">Scanning universe for high-confluence setups...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 2: MAIN CHART (~80% CENTRAL WORKSPACE)
+           ================================================================== -->
+      <section id="view-chart" class="terminal-view active">
+        <!-- Chart Section Toolbar -->
+        <div class="chart-top-toolbar">
           <div class="chart-toolbar-left">
-            <!-- Symbol Selector / Dropdown -->
-            <button type="button" id="btn-open-symbols" class="symbol-picker-btn" title="Click to switch trading pairs">
-              <span id="header-symbol-text">BTC/USDT</span>
-              <span class="fs-xs text-dim">▼</span>
-            </button>
-
-            <!-- Live Price & 24h Change -->
-            <div class="ticker-stats-group">
-              <span id="ticker-price" class="live-price-val">--</span>
-              <span id="ticker-change" class="live-change-badge bg-up">+0.00%</span>
+            <!-- Timeframe selector -->
+            <div class="timeframe-bar" id="chart-tf-bar">
+              <button type="button" class="tv-tf-btn" data-tf="1m">1m</button>
+              <button type="button" class="tv-tf-btn" data-tf="3m">3m</button>
+              <button type="button" class="tv-tf-btn" data-tf="5m">5m</button>
+              <button type="button" class="tv-tf-btn active" data-tf="15m">15m</button>
+              <button type="button" class="tv-tf-btn" data-tf="30m">30m</button>
+              <button type="button" class="tv-tf-btn" data-tf="1h">1h</button>
+              <button type="button" class="tv-tf-btn" data-tf="2h">2h</button>
+              <button type="button" class="tv-tf-btn" data-tf="4h">4h</button>
+              <button type="button" class="tv-tf-btn" data-tf="6h">6h</button>
+              <button type="button" class="tv-tf-btn" data-tf="12h">12h</button>
+              <button type="button" class="tv-tf-btn" data-tf="1d">1D</button>
+              <button type="button" class="tv-tf-btn" data-tf="1w">1W</button>
+              <button type="button" class="tv-tf-btn" data-tf="1M">1M</button>
             </div>
 
-            <div class="toolbar-divider"></div>
-
-            <!-- Timeframe Selector Buttons (1m,3m,5m,15m,30m,1h,2h,4h,6h,12h,1D,1W,1M) -->
-            <div class="timeframe-bar" id="timeframe-buttons-bar">
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="1m">1m</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="3m">3m</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="5m">5m</button>
-              <button type="button" class="tf-btn tv-tf-btn active" data-tf="15m">15m</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="30m">30m</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="1h">1h</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="2h">2h</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="4h">4h</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="6h">6h</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="12h">12h</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="1d">1D</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="1w">1W</button>
-              <button type="button" class="tf-btn tv-tf-btn" data-tf="1M">1M</button>
-            </div>
-
-            <div class="toolbar-divider"></div>
+            <div class="tv-divider"></div>
 
             <!-- Indicators Modal Button -->
-            <button type="button" id="btn-indicators-modal" class="btn-toolbar" title="Technical Indicators & Overlays">
-              <span style="font-weight:700; color:var(--blue);">fx</span>
+            <button type="button" id="btn-indicators-modal" class="header-action-btn" title="Technical Indicators &amp; Overlays">
+              <span>fx</span>
               <span>Indicators</span>
             </button>
 
             <!-- Jump to Live Bar -->
-            <button type="button" id="btn-return-live" class="btn-toolbar" title="Jump to current live forming candle">
+            <button type="button" id="btn-return-live" class="header-action-btn" title="Center chart to current forming candle">
               <span>⚡ Live Bar</span>
             </button>
           </div>
 
           <div class="chart-toolbar-right">
-            <!-- Candle Countdown Timer -->
-            <div class="bar-countdown-pill" title="Time until next candle begins">
+            <!-- Candle Countdown -->
+            <div class="bar-countdown-pill" title="Time remaining in active candle">
               <span class="text-dim fs-xs">Bar:</span>
-              <span id="candle-countdown-val" class="font-bold">--:--</span>
+              <span id="candle-countdown-val">--:--</span>
             </div>
 
-            <!-- Market Connection Status Pill -->
-            <div class="market-status-pill" id="conn-status-pill" title="WebSocket Connection Status">
-              <span id="conn-dot" class="status-dot"></span>
-              <span id="conn-text" class="up-color">LIVE</span>
-            </div>
+            <!-- Toggle Right Side Dock -->
+            <button type="button" id="btn-toggle-side-dock" class="header-action-btn active" title="Toggle Side Analysis Panel">
+              <span>📑 Side Panel</span>
+            </button>
 
-            <div class="toolbar-divider"></div>
-
-            <!-- Multi-Chart Layouts: 1, 2, 4 -->
-            <button type="button" id="btn-layout-1" class="tf-btn active" title="Single Chart">1</button>
-            <button type="button" id="btn-layout-2" class="tf-btn" title="2 Split Charts">2</button>
-            <button type="button" id="btn-layout-4" class="tf-btn" title="4 Quad Charts">4</button>
-
-            <div class="toolbar-divider"></div>
-
-            <!-- Fullscreen Button -->
-            <button type="button" id="btn-toggle-fullscreen" class="btn-toolbar" title="Toggle Fullscreen">
-              <span>⛶</span>
+            <!-- Chart Workspace Expansion Mode (CSS Layout) -->
+            <button type="button" id="btn-chart-fullscreen" class="header-action-btn" title="Expand Chart Workspace (CSS Layout)">
+              <span>&#x26F6; Workspace Expand</span>
             </button>
           </div>
-        </header>
+        </div>
 
-        <!-- Chart Workspace Row (Left Drawing Tools + Dominant Center Chart + Right Panel) -->
-        <div class="chart-workspace">
-          <!-- Left Drawing Toolbar (44px) -->
-          <aside class="drawing-toolbar tv-drawing-toolbar" aria-label="Drawing Tools">
-            <button type="button" class="tool-btn tv-tool-btn active" data-tool="cursor" title="Crosshair / Cursor">
+        <!-- Chart Workspace Row (Left Tools + Center Chart + Collapsible Right Dock) -->
+        <div class="tv-workspace-row">
+
+          <!-- Left Vertical Drawing Toolbar (44px) -->
+          <aside class="tv-drawing-toolbar" aria-label="Drawing Tools">
+            <button type="button" class="tv-tool-btn active" data-tool="cursor" title="Crosshair / Cursor">
               <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="trendline" title="Trendline">
+            <button type="button" class="tv-tool-btn" data-tool="trendline" title="Trendline">
               <svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="20" r="2.5" fill="currentColor"/><circle cx="20" cy="4" r="2.5" fill="currentColor"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="ray" title="Horizontal Ray">
+            <button type="button" class="tv-tool-btn" data-tool="ray" title="Ray Line">
               <svg viewBox="0 0 24 24"><path d="M4 12h16m-4-4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="hline" title="Horizontal Line">
+            <button type="button" class="tv-tool-btn" data-tool="hline" title="Horizontal Line">
               <svg viewBox="0 0 24 24"><path d="M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="vline" title="Vertical Line">
+            <button type="button" class="tv-tool-btn" data-tool="vline" title="Vertical Line">
               <svg viewBox="0 0 24 24"><path d="M12 2v20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
 
-            <div class="tool-divider tv-tool-divider"></div>
+            <div class="tv-tool-divider"></div>
 
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="demand_zone" title="Draw Demand Zone Rectangle (Green)">
-              <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="#10b981" stroke-width="2"/></svg>
+            <!-- Supply & Demand Zones -->
+            <button type="button" class="tv-tool-btn" data-tool="demand_zone" title="Draw Manual Demand Zone (Green)">
+              <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="#089981" stroke-width="2"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="supply_zone" title="Draw Supply Zone Rectangle (Red)">
-              <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="#ef4444" stroke-width="2"/></svg>
+            <button type="button" class="tv-tool-btn" data-tool="supply_zone" title="Draw Manual Supply Zone (Red)">
+              <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="#f23645" stroke-width="2"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="rectangle" title="Neutral Zone Box">
+            <button type="button" class="tv-tool-btn" data-tool="rectangle" title="Rectangle Box">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
             </button>
 
-            <div class="tool-divider tv-tool-divider"></div>
+            <div class="tv-tool-divider"></div>
 
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="fibonacci" title="Fibonacci Retracement">
+            <!-- Fibonacci & Risk:Reward Position Tools -->
+            <button type="button" class="tv-tool-btn" data-tool="fibonacci" title="Fibonacci Retracement (0.382, 0.5, 0.618, 0.786)">
               <svg viewBox="0 0 24 24"><path d="M3 5h18M3 10h18M3 14h18M3 19h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="position_long" title="Long Position Risk:Reward Tool">
-              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" fill="rgba(16,185,129,0.3)" stroke="#10b981"/><rect x="4" y="11" width="16" height="9" fill="rgba(239,68,68,0.3)" stroke="#ef4444"/></svg>
+            <button type="button" class="tv-tool-btn" data-tool="position_long" title="Long Position Risk:Reward Tool">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" fill="rgba(8,153,129,0.3)" stroke="#089981"/><rect x="4" y="11" width="16" height="9" fill="rgba(242,54,69,0.3)" stroke="#f23645"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="position_short" title="Short Position Risk:Reward Tool">
-              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" fill="rgba(239,68,68,0.3)" stroke="#ef4444"/><rect x="4" y="11" width="16" height="9" fill="rgba(16,185,129,0.3)" stroke="#10b981"/></svg>
+            <button type="button" class="tv-tool-btn" data-tool="position_short" title="Short Position Risk:Reward Tool">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" fill="rgba(242,54,69,0.3)" stroke="#f23645"/><rect x="4" y="11" width="16" height="9" fill="rgba(8,153,129,0.3)" stroke="#089981"/></svg>
             </button>
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="text" title="Text Annotation">
+            <button type="button" class="tv-tool-btn" data-tool="text" title="Text Annotation">
               <svg viewBox="0 0 24 24"><text x="6" y="18" font-size="16" font-weight="bold" fill="currentColor">T</text></svg>
             </button>
 
-            <div class="tool-divider tv-tool-divider"></div>
+            <div class="tv-tool-divider"></div>
 
-            <button type="button" class="tool-btn tv-tool-btn" data-tool="clear" title="Clear all drawings">
+            <button type="button" class="tv-tool-btn" data-tool="clear" title="Clear drawings on this timeframe">
               <svg viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
             </button>
           </aside>
 
-          <!-- Center Dominant Chart (~80% width) -->
-          <div class="tv-chart-center">
-            <!-- Main Chart Grid Box -->
+          <!-- Central Candlestick Chart Workspace (~80%) -->
+          <section class="tv-chart-center" id="chart-center-container">
             <div class="tv-main-chart-box layout-1" id="tv-chart-views">
               <!-- HUD Top-Left Overlay -->
               <div class="tv-chart-hud" id="chart-hud-overlay">
@@ -230,32 +304,29 @@
                   <span>C: <span id="hud-c" class="hud-val">--</span></span>
                   <span>Vol: <span id="hud-vol" class="hud-val">--</span></span>
                 </div>
-                <span id="hud-history-badge" class="badge-wait fs-xs">1Y+ History</span>
+                <span id="hud-history-badge" class="badge badge-blue">Binance USDⓈ-M</span>
               </div>
 
-              <!-- Main Viewport 0 -->
+              <!-- Background Sessions Overlay (Behind Candlesticks) -->
+              <svg id="chart-sessions-overlay" class="chart-sessions-layer"></svg>
+              <!-- Main Candlestick Viewport -->
               <div id="chart-viewport-0" class="tv-chart-surface"></div>
-              <div id="chart-viewport-1" class="tv-chart-surface d-none"></div>
-              <div id="chart-viewport-2" class="tv-chart-surface d-none"></div>
-              <div id="chart-viewport-3" class="tv-chart-surface d-none"></div>
-              <!-- Drawing Canvas Overlay -->
+              <!-- SVG Overlay for pixel-perfect anchored drawings & zones -->
               <svg id="drawing-canvas-overlay"></svg>
             </div>
 
-            <!-- Subcharts (RSI & MACD) -->
+            <!-- Oscillators & Subcharts Tray (RSI & MACD Panels) -->
             <div id="tv-subcharts-container" class="tv-subcharts-tray">
-              <!-- RSI Sub-chart -->
               <div id="rsi-subchart-pane" class="tv-subchart-pane">
                 <div class="tv-subchart-header">
-                  <span>RSI (14)</span>
+                  <span class="tv-subchart-title">RSI (14)</span>
                   <span id="rsi-hud-val" class="tv-subchart-val">--</span>
                 </div>
                 <div id="rsi-chart-surface" class="tv-subchart-render"></div>
               </div>
-              <!-- MACD Sub-chart -->
               <div id="macd-subchart-pane" class="tv-subchart-pane">
                 <div class="tv-subchart-header">
-                  <span>MACD (12, 26, 9)</span>
+                  <span class="tv-subchart-title">MACD (12, 26, 9)</span>
                   <span id="macd-hud-val" class="tv-subchart-val">--</span>
                 </div>
                 <div id="macd-chart-surface" class="tv-subchart-render"></div>
@@ -265,501 +336,532 @@
             <!-- Bottom Tray Bar -->
             <div class="tv-bottom-bar">
               <div class="tv-bottom-tabs">
-                <button type="button" class="tv-bottom-tab-btn active" id="btn-bottom-subcharts">📊 Oscillators</button>
-                <button type="button" class="tv-bottom-tab-btn" id="btn-quick-open-paper">💼 Paper Positions</button>
+                <button type="button" class="tv-bottom-tab-btn active" id="btn-bottom-subcharts">📊 Oscillators (RSI / MACD)</button>
+                <button type="button" class="tv-bottom-tab-btn" id="btn-bottom-positions">💼 Open Paper Positions</button>
               </div>
               <div class="fs-xs font-mono text-dim">
-                Session: <span id="active-session-text" class="text-bright">LONDON-NY OVERLAP</span>
+                Institutional Session: <span id="active-session-text" class="text-bright">LONDON-NY OVERLAP</span>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Right Panel (320px, Collapsible) -->
-          <aside class="right-panel tv-right-dock" id="chart-right-panel" aria-label="Quick Analysis & AI Assistant">
-            <!-- Header Tabs: Quick Analysis & AI Chat -->
-            <div class="right-panel-header">
-              <div class="right-panel-tabs">
-                <button type="button" class="tab-btn active" id="tab-quick-analysis" data-tab="page-quick-analysis">Analysis</button>
-                <button type="button" class="tab-btn" id="tab-ai-chat" data-tab="page-ai-chat">AI Chat</button>
-              </div>
-              <button type="button" class="panel-collapse-btn" id="btn-toggle-right-panel" title="Collapse Panel">✕</button>
-            </div>
-
-            <div class="right-panel-content">
-              <!-- Tab Page 1: Quick Analysis -->
-              <div class="panel-tab-page active" id="page-quick-analysis">
-                <div class="quick-analysis-wrap">
-                  <!-- Coin Summary Card -->
-                  <div class="analysis-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                      <strong id="qa-symbol" style="font-size:14px; color:var(--text-bright);">BTC/USDT</strong>
-                      <span id="qa-signal-badge" class="badge-wait">NEUTRAL</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:baseline;">
-                      <span id="qa-price" class="font-mono fs-lg font-bold">$--</span>
-                      <span id="qa-change" class="fs-xs up-color font-bold">+0.00%</span>
-                    </div>
-                  </div>
-
-                  <!-- Technical & SMC Metrics -->
-                  <div class="analysis-card">
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Trend Bias:</span>
-                      <strong id="qa-trend" class="up-color">BULLISH</strong>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Structure:</span>
-                      <strong id="qa-structure" class="text-bright">BOS (Higher High)</strong>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">S&D Status:</span>
-                      <strong id="qa-sd-status" class="text-bright">Testing Demand</strong>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">RSI (14):</span>
-                      <strong id="qa-rsi" class="font-mono">54.2</strong>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Confluence:</span>
-                      <strong id="qa-confluence" class="font-mono text-blue">7 / 8</strong>
-                    </div>
-                  </div>
-
-                  <!-- Key Price Levels -->
-                  <div class="analysis-card">
-                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-secondary); margin-bottom:6px; font-weight:600;">Key Levels</div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Session VWAP:</span>
-                      <span id="qa-vwap" class="font-mono">$--</span>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">PDH / PDL:</span>
-                      <span id="qa-pdh-pdl" class="font-mono">$-- / $--</span>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Demand Level:</span>
-                      <span id="qa-demand-level" class="font-mono up-color">$--</span>
-                    </div>
-                    <div class="analysis-metric-row">
-                      <span class="text-dim">Supply Level:</span>
-                      <span id="qa-supply-level" class="font-mono down-color">$--</span>
-                    </div>
-                  </div>
-
-                  <!-- Quick Paper Trade Execution -->
-                  <div class="analysis-card">
-                    <div style="font-size:11px; text-transform:uppercase; color:var(--text-secondary); margin-bottom:8px; font-weight:600;">Quick Execution</div>
-                    <div style="display:flex; gap:8px;">
-                      <button type="button" id="btn-qa-buy" class="btn-buy" style="flex:1;">BUY (Long)</button>
-                      <button type="button" id="btn-qa-sell" class="btn-sell" style="flex:1;">SELL (Short)</button>
-                    </div>
-                  </div>
+          <!-- Collapsible Right Dock Panel -->
+          <aside class="tv-right-dock" id="tv-right-dock-panel">
+            <div class="tv-sidebar-panel" id="sidebar-drawer">
+              <!-- TAB 1: WATCHLIST QUICK PICKER -->
+              <div id="page-watchlist" class="sidebar-page active">
+                <div class="sidebar-header-bar">
+                  <span class="sidebar-title">Active Watchlist</span>
+                </div>
+                <div class="sidebar-content-scroll">
+                  <table class="tv-watchlist-table">
+                    <thead>
+                      <tr><th>Symbol</th><th class="text-right">Last Price</th><th class="text-right">24h Chg</th></tr>
+                    </thead>
+                    <tbody id="watchlist-tbody">
+                      <tr data-symbol="BTC/USDT" class="active"><td><strong>BTC/USDT</strong></td><td class="text-right" id="wl-btc-p">--</td><td class="text-right" id="wl-btc-c">--</td></tr>
+                      <tr data-symbol="ETH/USDT"><td><strong>ETH/USDT</strong></td><td class="text-right" id="wl-eth-p">--</td><td class="text-right" id="wl-eth-c">--</td></tr>
+                      <tr data-symbol="SOL/USDT"><td><strong>SOL/USDT</strong></td><td class="text-right" id="wl-sol-p">--</td><td class="text-right" id="wl-sol-c">--</td></tr>
+                      <tr data-symbol="BNB/USDT"><td><strong>BNB/USDT</strong></td><td class="text-right" id="wl-bnb-p">--</td><td class="text-right" id="wl-bnb-c">--</td></tr>
+                      <tr data-symbol="XRP/USDT"><td><strong>XRP/USDT</strong></td><td class="text-right" id="wl-xrp-p">--</td><td class="text-right" id="wl-xrp-c">--</td></tr>
+                      <tr data-symbol="DOGE/USDT"><td><strong>DOGE/USDT</strong></td><td class="text-right" id="wl-doge-p">--</td><td class="text-right" id="wl-doge-c">--</td></tr>
+                      <tr data-symbol="ADA/USDT"><td><strong>ADA/USDT</strong></td><td class="text-right" id="wl-ada-p">--</td><td class="text-right" id="wl-ada-c">--</td></tr>
+                      <tr data-symbol="AVAX/USDT"><td><strong>AVAX/USDT</strong></td><td class="text-right" id="wl-avax-p">--</td><td class="text-right" id="wl-avax-c">--</td></tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              <!-- Tab Page 2: AI Chat -->
-              <div class="panel-tab-page" id="page-ai-chat">
-                <div class="chat-container">
-                  <div class="chat-messages" id="chat-messages-container">
+              <!-- TAB 2: AI ASSISTANT -->
+              <div id="page-ai" class="sidebar-page">
+                <div class="sidebar-header-bar">
+                  <span class="sidebar-title">AlphaQuant AI Intelligence</span>
+                </div>
+                <div class="tv-chat-container">
+                  <div class="tv-chat-messages" id="chat-messages-container">
                     <div class="message-bubble ai">
-                      <strong>AlphaQuant AI Pro</strong><br>
-                      Trading assistant ready. Ask for structure analysis, key levels, trade setup confirmation, or draw zones on the chart.
+                      <strong>AlphaQuant AI Intelligence Ready</strong><br>
+                      Connected to <span id="chat-pair-label">BTC/USDT</span> (<span id="chat-tf-label">15m</span>). Ask any question about structural levels, zones, or setup confirmation.
                     </div>
                   </div>
-
-                  <!-- Quick Prompt Chips -->
-                  <div class="chat-chips-bar">
-                    <button type="button" class="chip-btn" data-query="Analyze current market structure & trend">Trend Analysis</button>
-                    <button type="button" class="chip-btn" data-query="What are key institutional supply & demand levels?">Key Zones</button>
-                    <button type="button" class="chip-btn" data-query="Give me a precise trade setup with Entry, SL, and TP">Trade Setup</button>
+                  <div class="chat-input-row">
+                    <input id="chat-input-field" class="tv-input" type="text" placeholder="Ask about structure, S&amp;D, or setup..." aria-label="Ask AI about structure, Supply and Demand, or setup">
+                    <button type="button" id="btn-chat-send" class="tv-btn-send">Send</button>
                   </div>
-
-                  <!-- Input Row -->
-                  <form class="chat-input-bar" id="chat-form">
-                    <input type="text" id="chat-input-field" class="chat-input" placeholder="Ask AI about levels or setup..." autocomplete="off">
-                    <button type="submit" id="btn-chat-send" class="btn-chat-send">Send</button>
-                  </form>
                 </div>
               </div>
+
+              <!-- TAB 3: SIGNALS SUMMARY -->
+              <div id="page-signals" class="sidebar-page">
+                <div class="sidebar-header-bar">
+                  <span class="sidebar-title">Pair Setups</span>
+                  <span id="signal-state-badge" class="badge badge-emerald">ACTIVE</span>
+                </div>
+                <div class="sidebar-content-scroll" id="signals-container">
+                  <div class="font-mono fs-xs text-dim">Evaluating trade plan...</div>
+                </div>
+              </div>
+
+              <!-- TAB 4: QUICK PAPER TRADING -->
+              <div id="page-trading" class="sidebar-page">
+                <div class="sidebar-header-bar">
+                  <span class="sidebar-title">Quick Execution</span>
+                  <span id="header-balance" class="font-mono text-green font-bold">$1,000.00</span>
+                </div>
+                <div class="sidebar-content-scroll p-12">
+                  <div class="flex-gap-8">
+                    <button type="button" id="btn-quick-long" class="btn-analyze-zone-ai flex-1 bg-btn-green">BUY (Long)</button>
+                    <button type="button" id="btn-quick-short" class="btn-analyze-zone-ai flex-1 bg-btn-red">SELL (Short)</button>
+                  </div>
+                  <input id="trade-amount" class="tv-input mt-8" type="number" value="100" placeholder="USDT amount" aria-label="Quick paper trade USDT amount">
+                  <div class="mt-12" id="open-positions-list">
+                    <span class="text-dim fs-xs">No active paper positions.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Icon Tray (40px) -->
+            <div class="tv-right-tray">
+              <button type="button" class="tv-tray-icon active" data-page="page-watchlist" title="Watchlist" aria-label="Watchlist">📋</button>
+              <button type="button" class="tv-tray-icon" data-page="page-ai" title="AI Market Intelligence" aria-label="AI Market Intelligence">🤖</button>
+              <button type="button" class="tv-tray-icon" data-page="page-signals" title="Signals &amp; Plans" aria-label="Signals and Plans">🎯</button>
+              <button type="button" class="tv-tray-icon" data-page="page-trading" title="Paper Execution" aria-label="Paper Execution">💼</button>
             </div>
           </aside>
+
         </div>
       </section>
 
-      <!-- ====================================================================
-           SECTION 2: SCANNER (id="section-scanner")
-           ==================================================================== -->
-      <section class="section" id="section-scanner" aria-label="Market Scanner">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Market Scanner</span>
-            <span class="section-subtitle">Real-time Multi-Coin Quantitative Screener</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button type="button" id="btn-refresh-scanner" class="btn-secondary" style="padding:4px 10px; font-size:11px;">⟳ Refresh</button>
-          </div>
-        </header>
-
-        <!-- Category & Filter Bar -->
-        <div class="scanner-filter-bar">
-          <div class="filter-pills" id="scanner-category-pills">
-            <button type="button" class="filter-pill active" data-category="all">Top 100</button>
-            <button type="button" class="filter-pill" data-category="gainers">Top Gainers</button>
-            <button type="button" class="filter-pill" data-category="losers">Top Losers</button>
-            <button type="button" class="filter-pill" data-category="bullish">Bullish Structure</button>
-            <button type="button" class="filter-pill" data-category="bearish">Bearish Structure</button>
-            <button type="button" class="filter-pill" data-category="volume">High Volume</button>
-            <button type="button" class="filter-pill" data-category="breakouts">Breakouts</button>
-            <button type="button" class="filter-pill" data-category="pullbacks">Pullbacks</button>
-            <button type="button" class="filter-pill" data-category="sd">S&D Opportunities</button>
+      <!-- ==================================================================
+           SECTION 3: TOP 100 CRYPTO
+           ================================================================== -->
+      <section id="view-top100" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Dynamic Top 100 Cryptocurrency Universe</h1>
+              <p class="view-subtitle">Ranked by quantitative composite score across Binance USDⓈ-M Futures with CoinGecko market capitalisation.</p>
+            </div>
+            <div class="btn-group">
+              <input type="text" id="top100-search-input" class="tv-input w-220" placeholder="Search symbol or name..." aria-label="Search Top 100 symbol or coin name">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-top100">↻ Refresh</button>
+            </div>
           </div>
 
-          <div class="scanner-search-wrap">
-            <span class="scanner-search-icon">🔍</span>
-            <input type="text" id="scanner-search-input" class="scanner-search-input" placeholder="Filter symbol (e.g. BTC)...">
+          <div class="ranking-methodology-bar mt-8" id="top100-methodology-bar">
+            <span><strong>Ranking Model:</strong> Liquidity (35%) • Market Cap (30%) • Relative Volume Momentum (20%) • ATR/Volatility Opportunity (15%)</span>
+            <span class="font-mono text-bright" id="top100-eligible-count">Eligible Pairs: --</span>
           </div>
-        </div>
 
-        <!-- Live Scanner Stats Bar -->
-        <div class="scanner-stats-bar">
-          <span id="scanner-stat-summary">Loading universe...</span>
-          <span id="scanner-last-update">Auto-refresh: 30s</span>
-        </div>
-
-        <!-- Scrollable Table -->
-        <div class="scanner-table-container">
-          <table class="data-table" id="scanner-table">
-            <thead>
-              <tr>
-                <th style="width:50px;">Rank</th>
-                <th>Symbol</th>
-                <th style="text-align:right;">Price</th>
-                <th style="text-align:right;">24h %</th>
-                <th style="text-align:right;">7d %</th>
-                <th style="text-align:right;">24h Vol</th>
-                <th style="text-align:right;">Rel. Vol</th>
-                <th style="text-align:right;">RSI</th>
-                <th>Trend</th>
-                <th>Structure</th>
-                <th>S&D Zone</th>
-                <th>Signal</th>
-                <th style="text-align:right;">Score</th>
-              </tr>
-            </thead>
-            <tbody id="scanner-tbody">
-              <!-- Dynamically rendered by scanner.js -->
-              <tr><td colspan="13" style="text-align:center; padding:30px;" class="text-dim">Loading eligible pairs from quantitative scanner engine...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ====================================================================
-           SECTION 3: SIGNALS (id="section-signals")
-           ==================================================================== -->
-      <section class="section" id="section-signals" aria-label="Trading Signals Dashboard">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Institutional Trading Signals</span>
-            <span class="section-subtitle">Multi-Model Quantitative Confluence Alerts</span>
-          </div>
-        </header>
-
-        <!-- Tabs Bar -->
-        <div class="signals-tabs-bar">
-          <div class="signals-tabs">
-            <button type="button" class="tab-btn active" id="tab-signals-active" data-signals-tab="active">Active Signals</button>
-            <button type="button" class="tab-btn" id="tab-signals-history" data-signals-tab="history">Signal History</button>
-            <button type="button" class="tab-btn" id="tab-signals-perf" data-signals-tab="performance">Signal Performance</button>
-          </div>
-        </div>
-
-        <!-- Filter Bar -->
-        <div class="signals-filters-bar">
-          <label class="form-label" style="margin:0;">Direction:</label>
-          <select id="signals-filter-direction" class="form-select" style="padding:4px 8px;">
-            <option value="all">All Directions</option>
-            <option value="LONG">Longs Only</option>
-            <option value="SHORT">Shorts Only</option>
-          </select>
-
-          <label class="form-label" style="margin:0; margin-left:8px;">Timeframe:</label>
-          <select id="signals-filter-tf" class="form-select" style="padding:4px 8px;">
-            <option value="all">All Timeframes</option>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1d">1D</option>
-          </select>
-
-          <label class="form-label" style="margin:0; margin-left:8px;">Status:</label>
-          <select id="signals-filter-status" class="form-select" style="padding:4px 8px;">
-            <option value="all">All Statuses</option>
-            <option value="ACTIVE">Active / Pending</option>
-            <option value="TRIGGERED">Triggered</option>
-            <option value="TP_HIT">Take Profit Hit</option>
-            <option value="SL_HIT">Stop Loss Hit</option>
-          </select>
-        </div>
-
-        <!-- Signals Grid / Content Container -->
-        <div class="section-body" style="padding:0;">
-          <div id="signals-cards-grid" class="signals-grid">
-            <!-- Dynamically populated by signals_view.js -->
-            <div class="text-dim" style="padding:30px;">Loading signals from AlphaQuant engine...</div>
-          </div>
-          <div id="signals-history-table-container" class="scanner-table-container d-none">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Date/Time</th>
-                  <th>Symbol</th>
-                  <th>Direction</th>
-                  <th>Timeframe</th>
-                  <th>Entry</th>
-                  <th>Exit / Current</th>
-                  <th>Outcome</th>
-                  <th>R:R</th>
-                  <th>Net PnL</th>
-                </tr>
-              </thead>
-              <tbody id="signals-history-tbody"></tbody>
-            </table>
+          <!-- Top 100 Table Card -->
+          <div class="panel-card mt-12">
+            <div class="table-responsive">
+              <table class="terminal-table" id="table-top100">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Symbol</th>
+                    <th>Coin Name</th>
+                    <th class="text-right">Price (USD)</th>
+                    <th class="text-right">24h %</th>
+                    <th class="text-right">7d %</th>
+                    <th class="text-right">30d %</th>
+                    <th class="text-right">Market Cap</th>
+                    <th class="text-right">24h Quote Vol</th>
+                    <th class="text-right">Composite Score</th>
+                    <th>Trading Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-top100">
+                  <tr><td colspan="12" class="text-center text-dim py-24">Loading Top 100 Universe...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- ====================================================================
-           SECTION 4: AI ANALYSIS (id="section-ai")
-           ==================================================================== -->
-      <section class="section" id="section-ai" aria-label="AI Deep Analysis">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Institutional AI Deep Analysis</span>
-            <span class="section-subtitle">LLM Market Reasoning & Smart Money Breakdown</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <label class="form-label" style="margin:0;">Coin:</label>
-            <select id="ai-coin-selector" class="form-select" style="font-weight:700;">
-              <option value="BTC/USDT">BTC/USDT</option>
-              <option value="ETH/USDT">ETH/USDT</option>
-              <option value="SOL/USDT">SOL/USDT</option>
-              <option value="BNB/USDT">BNB/USDT</option>
-              <option value="XRP/USDT">XRP/USDT</option>
-              <option value="DOGE/USDT">DOGE/USDT</option>
-              <option value="ADA/USDT">ADA/USDT</option>
-              <option value="AVAX/USDT">AVAX/USDT</option>
-            </select>
-            <button type="button" id="btn-refresh-ai-analysis" class="btn-primary" style="padding:6px 12px;">⚡ Run Analysis</button>
-          </div>
-        </header>
-
-        <div class="section-body">
-          <!-- Structured Analysis Badges Grid -->
-          <div class="ai-badges-grid">
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Market Bias</span>
-              <span id="ai-badge-bias" class="ai-badge-value up-color">BULLISH</span>
+      <!-- ==================================================================
+           SECTION 4: MARKET SCANNER (17 COLUMNS, 14 FILTERS & AI OPPORTUNITIES)
+           ================================================================== -->
+      <section id="view-scanner" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">AI Quantitative Market Scanner</h1>
+              <p class="view-subtitle">Closed-candle multi-factor screening across the eligible Binance USDⓈ-M perpetual universe.</p>
             </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Structure</span>
-              <span id="ai-badge-structure" class="ai-badge-value text-bright">BOS CONFIRMED</span>
-            </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">HTF Alignment</span>
-              <span id="ai-badge-htf" class="ai-badge-value up-color">ALIGNED (4h/1D)</span>
-            </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Demand Zone</span>
-              <span id="ai-badge-demand" class="ai-badge-value up-color">VALID ($-- - $--)</span>
-            </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Supply Zone</span>
-              <span id="ai-badge-supply" class="ai-badge-value text-dim">UNTESTED ($--)</span>
-            </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Volume Profile</span>
-              <span id="ai-badge-volume" class="ai-badge-value text-blue">ABOVE BASELINE</span>
-            </div>
-            <div class="ai-badge-card">
-              <span class="ai-badge-label">Signal Recommendation</span>
-              <span id="ai-badge-signal" class="badge-long" style="text-align:center;">BUY / LONG</span>
+            <div class="btn-group">
+              <input type="text" id="scanner-search-input" class="tv-input w-180" placeholder="Filter symbol..." aria-label="Filter market scanner by symbol">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-scanner">↻ Scan Market</button>
             </div>
           </div>
 
-          <!-- Structured Narrative Breakdown -->
-          <div class="ai-narrative-card">
-            <h3>Institutional Quant Context & Trade Plan</h3>
-            <div id="ai-analysis-narrative" style="color:var(--text-primary); font-size:13px; line-height:1.6;">
-              Select a coin and click "Run Analysis" to generate real-time AI reasoning.
-            </div>
-          </div>
-
-          <!-- Contextual AI Chat for Selected Coin -->
-          <div class="analysis-card" style="display:flex; flex-direction:column; height:360px;">
-            <div style="font-size:12px; font-weight:700; color:var(--text-bright); margin-bottom:8px;">Ask AI about this coin</div>
-            <div class="chat-messages" id="ai-section-chat-messages" style="flex:1;">
-              <div class="message-bubble ai">Ask any specific tactical question regarding the selected asset.</div>
-            </div>
-            <form class="chat-input-bar" id="ai-section-chat-form" style="background:var(--bg-card); padding:8px 0 0 0;">
-              <input type="text" id="ai-section-chat-input" class="chat-input" placeholder="e.g. Where is the optimal invalidation for this setup?" autocomplete="off">
-              <button type="submit" class="btn-chat-send">Ask</button>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <!-- ====================================================================
-           SECTION 5: WATCHLIST (id="section-watchlist")
-           ==================================================================== -->
-      <section class="section" id="section-watchlist" aria-label="Watchlist">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Watchlist</span>
-            <span class="section-subtitle">Real-time Monitored Trading Pairs</span>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="input-add-watchlist" class="form-input" placeholder="Add symbol (e.g. NEAR/USDT)" style="width:200px;">
-            <button type="button" id="btn-add-watchlist" class="btn-primary" style="padding:6px 12px;">+ Add</button>
-          </div>
-        </header>
-
-        <div class="section-body" style="padding:0;">
-          <table class="data-table" id="watchlist-table">
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th style="text-align:right;">Last Price</th>
-                <th style="text-align:right;">24h Change</th>
-                <th style="text-align:right;">24h High</th>
-                <th style="text-align:right;">24h Low</th>
-                <th style="text-align:right;">24h Volume</th>
-                <th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="watchlist-table-body">
-              <!-- Dynamically populated by watchlist.js -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ====================================================================
-           SECTION 6: PAPER TRADING (id="section-paper")
-           ==================================================================== -->
-      <section class="section" id="section-paper" aria-label="Paper Trading">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Paper Trading Portfolio</span>
-            <span class="section-subtitle">Simulated Institutional Order Execution & Risk Engine</span>
-          </div>
-          <button type="button" id="btn-refresh-paper" class="btn-secondary" style="padding:4px 10px;">⟳ Sync</button>
-        </header>
-
-        <div class="section-body">
-          <!-- Summary Banner -->
-          <div class="stats-banner">
-            <div class="stat-box">
-              <span class="stat-label">Paper Account Balance</span>
-              <span class="stat-value text-green" id="paper-stat-balance">$10,000.00</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-label">Unrealized P&L</span>
-              <span class="stat-value" id="paper-stat-unrealized">$0.00</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-label">Realized P&L</span>
-              <span class="stat-value" id="paper-stat-realized">$0.00</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-label">Open Positions</span>
-              <span class="stat-value text-blue" id="paper-stat-positions">0</span>
-            </div>
-          </div>
-
-          <!-- Two-Column Workspace -->
-          <div class="two-column-layout">
-            <!-- Order Form -->
-            <div class="card-form">
-              <h3 style="font-size:14px; color:var(--text-bright); margin-bottom:4px;">Execute Paper Order</h3>
-              <div class="form-group">
-                <label class="form-label">Pair</label>
-                <select id="paper-order-pair" class="form-select">
-                  <option value="BTC/USDT">BTC/USDT</option>
-                  <option value="ETH/USDT">ETH/USDT</option>
-                  <option value="SOL/USDT">SOL/USDT</option>
-                  <option value="BNB/USDT">BNB/USDT</option>
-                  <option value="XRP/USDT">XRP/USDT</option>
-                </select>
+          <!-- AI Categorized Setup Shortlist (Part 7) -->
+          <div class="panel-card mb-12" id="scanner-ai-ops-panel">
+            <div class="panel-header panel-header-wrap">
+              <span class="panel-title">⚡ AI Categorized Trade Setups</span>
+              <div class="scanner-ops-tabs" id="scanner-ops-tabs">
+                <button type="button" class="filter-pill active" data-opcat="best_long">Best LONG</button>
+                <button type="button" class="filter-pill" data-opcat="best_short">Best SHORT</button>
+                <button type="button" class="filter-pill" data-opcat="breakouts">Breakouts</button>
+                <button type="button" class="filter-pill" data-opcat="pullbacks">Pullbacks</button>
+                <button type="button" class="filter-pill" data-opcat="demand_zones">Demand Zones</button>
+                <button type="button" class="filter-pill" data-opcat="supply_zones">Supply Zones</button>
+                <button type="button" class="filter-pill" data-opcat="waiting_confirmation">Waiting Confirmation</button>
+                <button type="button" class="filter-pill" data-opcat="avoid">Coins to Avoid</button>
               </div>
+            </div>
+            <div id="scanner-ai-ops-list" class="scanner-ops-grid">
+              <div class="text-dim fs-xs">Evaluating quantitative opportunities across closed candles...</div>
+            </div>
+          </div>
 
-              <div class="form-group">
-                <label class="form-label">Side</label>
-                <div style="display:flex; gap:8px;">
-                  <button type="button" id="btn-order-buy-toggle" class="btn-buy" style="flex:1;">BUY (LONG)</button>
-                  <button type="button" id="btn-order-sell-toggle" class="btn-secondary" style="flex:1;">SELL (SHORT)</button>
+          <!-- 14 SCANNER FILTERS BAR -->
+          <div class="scanner-filter-pills" id="scanner-filters-container">
+            <button type="button" class="filter-pill active" data-filter="all">Top 100 Candidates</button>
+            <button type="button" class="filter-pill" data-filter="mcap">Best Market-Cap</button>
+            <button type="button" class="filter-pill" data-filter="liquidity">Highest Liquidity</button>
+            <button type="button" class="filter-pill" data-filter="volume">Highest Volume</button>
+            <button type="button" class="filter-pill" data-filter="performers">Strongest Performers</button>
+            <button type="button" class="filter-pill" data-filter="bullish">Strong Bullish</button>
+            <button type="button" class="filter-pill" data-filter="bearish">Strong Bearish</button>
+            <button type="button" class="filter-pill" data-filter="breakout">Breakout Candidates</button>
+            <button type="button" class="filter-pill" data-filter="pullback">Pullback Candidates</button>
+            <button type="button" class="filter-pill" data-filter="rel_vol">High Relative Volume</button>
+            <button type="button" class="filter-pill" data-filter="volatility">High Volatility</button>
+            <button type="button" class="filter-pill" data-filter="demand">Demand-Zone Ops</button>
+            <button type="button" class="filter-pill" data-filter="supply">Supply-Zone Ops</button>
+            <button type="button" class="filter-pill" data-filter="watchlist">Watchlist Only</button>
+          </div>
+
+          <!-- 17-COLUMN SCANNER TABLE -->
+          <div class="panel-card mt-12">
+            <div class="table-responsive">
+              <table class="terminal-table" id="table-scanner">
+                <thead>
+                  <tr>
+                    <th data-sort="rank">Rank ⇅</th>
+                    <th data-sort="pair_name">Symbol ⇅</th>
+                    <th data-sort="coin_name">Coin ⇅</th>
+                    <th data-sort="last_price" class="text-right">Price ⇅</th>
+                    <th data-sort="change_24h_pct" class="text-right">24h % ⇅</th>
+                    <th data-sort="change_7d" class="text-right">7d % ⇅</th>
+                    <th data-sort="change_30d" class="text-right">30d % ⇅</th>
+                    <th data-sort="market_cap" class="text-right">Market Cap ⇅</th>
+                    <th data-sort="volume_24h_quote" class="text-right">24h Vol ⇅</th>
+                    <th data-sort="relative_volume" class="text-right">Rel Vol ⇅</th>
+                    <th data-sort="rsi" class="text-right">RSI ⇅</th>
+                    <th data-sort="trend">Trend</th>
+                    <th data-sort="structure">Structure</th>
+                    <th data-sort="sd">S&amp;D</th>
+                    <th data-sort="volatility" class="text-right">ATR % ⇅</th>
+                    <th data-sort="funding" class="text-right">Funding ⇅</th>
+                    <th data-sort="signal">Signal</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-scanner">
+                  <tr><td colspan="17" class="text-center text-dim py-24">Running deterministic market scanner...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 5: AI ANALYSIS & COIN INTELLIGENCE
+           ================================================================== -->
+      <section id="view-ai-analysis" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Individual Coin Intelligence Engine: <span id="ai-coin-title" class="text-blue">BTC/USDT</span></h1>
+              <p class="view-subtitle">Independent technical synthesis, multi-timeframe confluence, and institutional trade plans.</p>
+            </div>
+            <div class="btn-group">
+              <select id="ai-timeframe-select" class="tv-input w-90" aria-label="AI Analysis Timeframe" title="AI Analysis Timeframe">
+                <option value="5m">5m</option>
+                <option value="15m" selected>15m</option>
+                <option value="1h">1h</option>
+                <option value="4h">4h</option>
+                <option value="1d">1D</option>
+              </select>
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-ai-analysis">↻ Re-analyze</button>
+            </div>
+          </div>
+
+          <!-- Multi-Timeframe Alignment Banner -->
+          <div class="panel-card mt-12" id="ai-mtf-banner">
+            <div class="mtf-matrix-row" id="ai-mtf-matrix-container">
+              <div class="mtf-cell"><span>1D: Major Direction</span><strong id="mtf-1d-val">--</strong></div>
+              <div class="mtf-cell"><span>4H: Structural Bias</span><strong id="mtf-4h-val">--</strong></div>
+              <div class="mtf-cell"><span>1H: Confirmation</span><strong id="mtf-1h-val">--</strong></div>
+              <div class="mtf-cell"><span>15M: Operational Setup</span><strong id="mtf-15m-val">--</strong></div>
+              <div class="mtf-cell"><span>5M: Entry Trigger</span><strong id="mtf-5m-val">--</strong></div>
+            </div>
+          </div>
+
+          <!-- 3-Column Detailed Analysis Grid -->
+          <div class="ai-analysis-grid mt-16">
+            <!-- Col 1: Technical & Structural Confluence -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">📐 Technical &amp; Structure Metrics</span>
+              </div>
+              <div class="analysis-metrics-list" id="ai-technical-metrics">
+                <div class="metric-row"><span>Trend Direction</span><strong id="ai-metric-trend">--</strong></div>
+                <div class="metric-row"><span>RSI (14)</span><strong id="ai-metric-rsi">--</strong></div>
+                <div class="metric-row"><span>ADX Trend Strength</span><strong id="ai-metric-adx">--</strong></div>
+                <div class="metric-row"><span>ATR (Volatility)</span><strong id="ai-metric-atr">--</strong></div>
+                <div class="metric-row"><span>Market Structure</span><strong id="ai-metric-structure">--</strong></div>
+                <div class="metric-row"><span>Order Blocks</span><strong id="ai-metric-ob">--</strong></div>
+                <div class="metric-row"><span>Fair Value Gaps</span><strong id="ai-metric-fvg">--</strong></div>
+                <div class="metric-row"><span>Dealing Range</span><strong id="ai-metric-range">--</strong></div>
+                <div class="metric-row"><span>Supply / Demand</span><strong id="ai-metric-sd">--</strong></div>
+                <div class="metric-row"><span>Funding Rate</span><strong id="ai-metric-funding">--</strong></div>
+              </div>
+            </div>
+
+            <!-- Col 2: Exact Institutional Trade Plan -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">🎯 Exact Trade Plan</span>
+                <span id="ai-decision-badge" class="badge badge-emerald">--</span>
+              </div>
+              <div class="trade-plan-details" id="ai-trade-plan-box">
+                <div class="plan-stat-row"><span>Lifecycle Status</span><strong id="ai-plan-status" class="text-dim">--</strong></div>
+                <div class="plan-stat-row"><span>Technical Score / Confidence</span><strong id="ai-plan-score" class="font-mono">--</strong></div>
+                <div class="plan-stat-row"><span>Entry Price</span><strong id="ai-plan-entry" class="font-mono">--</strong></div>
+                <div class="plan-stat-row"><span>Entry Range</span><strong id="ai-plan-range" class="font-mono">--</strong></div>
+                <div class="plan-stat-row"><span>Stop Loss / Invalidation</span><strong id="ai-plan-sl" class="font-mono text-red">--</strong></div>
+                <div class="plan-stat-row"><span>Take Profit 1 (1.5R)</span><strong id="ai-plan-tp1" class="font-mono text-green">--</strong></div>
+                <div class="plan-stat-row"><span>Take Profit 2 (2.5R)</span><strong id="ai-plan-tp2" class="font-mono text-green">--</strong></div>
+                <div class="plan-stat-row"><span>Take Profit 3 (4.0R)</span><strong id="ai-plan-tp3" class="font-mono text-green">--</strong></div>
+                <div class="plan-stat-row"><span>Net Risk:Reward (after costs)</span><strong id="ai-plan-rr" class="font-mono">--</strong></div>
+                <div class="plan-stat-row"><span>Costs, Spread &amp; Funding</span><strong id="ai-plan-costs" class="font-mono text-dim">--</strong></div>
+
+                <div class="trade-plan-explanations mt-12">
+                  <div class="explanation-block">
+                    <span class="exp-title text-green">Why Enter?</span>
+                    <ul id="ai-why-enter-list" class="exp-list"><li>Awaiting analysis...</li></ul>
+                  </div>
+                  <div class="explanation-block mt-8">
+                    <span class="exp-title text-red">Why Avoid / Risks:</span>
+                    <ul id="ai-why-avoid-list" class="exp-list"><li>Awaiting analysis...</li></ul>
+                  </div>
+                  <div class="explanation-block mt-8">
+                    <span class="exp-title text-blue">What Must Happen Next?</span>
+                    <ul id="ai-what-next-list" class="exp-list"><li>Awaiting analysis...</li></ul>
+                  </div>
+                  <div class="explanation-block mt-8">
+                    <span class="exp-title text-dim">Exact Invalidation Condition:</span>
+                    <div id="ai-invalidation-text" class="fs-xs text-bright mt-4">--</div>
+                  </div>
                 </div>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Amount (USDT)</label>
-                <input type="number" id="paper-order-amount" class="form-input" value="500" min="10" step="50">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Stop Loss ($ optional)</label>
-                <input type="number" id="paper-order-sl" class="form-input" placeholder="e.g. 64200">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Take Profit ($ optional)</label>
-                <input type="number" id="paper-order-tp" class="form-input" placeholder="e.g. 68500">
-              </div>
-
-              <button type="button" id="btn-execute-paper-order" class="btn-primary" style="margin-top:8px;">Submit Simulated Order</button>
             </div>
 
-            <!-- Positions & Trades Tables -->
-            <div style="display:flex; flex-direction:column; gap:16px;">
-              <!-- Open Positions -->
-              <div class="analysis-card" style="padding:0; overflow:hidden;">
-                <div style="padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700;">Open Positions</div>
-                <table class="data-table">
+            <!-- Col 3: Interactive Context-Aware AI Chat -->
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">🤖 AI Assistant &amp; Narrative</span>
+              </div>
+              <div class="ai-chat-workspace">
+                <div class="ai-quick-questions">
+                  <button type="button" class="btn-chip" data-q="Is this coin suitable for LONG now?">Suitable for LONG?</button>
+                  <button type="button" class="btn-chip" data-q="Where is the stop loss and invalidation?">Where is SL?</button>
+                  <button type="button" class="btn-chip" data-q="Is the demand zone still valid and fresh?">Fresh Demand?</button>
+                  <button type="button" class="btn-chip" data-q="What confirmation is required before entering?">What confirmation?</button>
+                </div>
+                <div class="ai-chat-output-box" id="ai-workspace-chat-log">
+                  <div class="message-bubble ai" id="ai-workspace-narrative">
+                    Loading calculated intelligence for selected coin...
+                  </div>
+                </div>
+                <div class="chat-input-row mt-8">
+                  <input id="ai-workspace-input" class="tv-input" type="text" placeholder="Ask specific questions about this coin's setup..." aria-label="Ask specific questions about this coin's setup">
+                  <button type="button" id="btn-ai-workspace-send" class="tv-btn-send">Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 6: TRADING SIGNALS
+           ================================================================== -->
+      <section id="view-signals" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Trading Signals Command Center</h1>
+              <p class="view-subtitle">Real-time trade setups categorized by explicit lifecycle states with mathematical risk parameters.</p>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-signals">↻ Refresh Signals</button>
+            </div>
+          </div>
+
+          <!-- Signal Category Filter Tabs -->
+          <div class="scanner-filter-pills mt-8" id="signals-filter-pills">
+            <button type="button" class="filter-pill active" data-sfilter="all">All Signals</button>
+            <button type="button" class="filter-pill" data-sfilter="confirmed_long">Confirmed Long</button>
+            <button type="button" class="filter-pill" data-sfilter="confirmed_short">Confirmed Short</button>
+            <button type="button" class="filter-pill" data-sfilter="potential">Potential Setup</button>
+            <button type="button" class="filter-pill" data-sfilter="waiting">Waiting Confirmation</button>
+            <button type="button" class="filter-pill" data-sfilter="history">History &amp; Closed</button>
+          </div>
+
+          <!-- Signal Cards Grid -->
+          <div class="signals-cards-grid mt-16" id="signals-cards-container">
+            <div class="text-center text-dim py-32 grid-col-full">Loading active trading signals...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 7: WATCHLIST
+           ================================================================== -->
+      <section id="view-watchlist" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Custom Watchlists &amp; Priority Pairs</h1>
+              <p class="view-subtitle">Organize and monitor specific cryptocurrency portfolios and trade setups.</p>
+            </div>
+            <div class="btn-group">
+              <input type="text" id="watchlist-add-input" class="tv-input w-170" placeholder="Add pair (e.g. SUI/USDT)..." aria-label="Add trading pair to watchlist">
+              <button type="button" class="btn-terminal-sm" id="btn-add-watchlist-pair">+ Add Pair</button>
+              <button type="button" class="btn-terminal-sm" id="btn-new-watchlist-cat">+ New List</button>
+            </div>
+          </div>
+
+          <!-- Watchlist Category Tabs -->
+          <div class="scanner-filter-pills mt-8" id="watchlist-categories">
+            <button type="button" class="filter-pill active" data-wcat="Core 10">Core 10</button>
+            <button type="button" class="filter-pill" data-wcat="DeFi">DeFi</button>
+            <button type="button" class="filter-pill" data-wcat="Layer 1">Layer 1</button>
+            <button type="button" class="filter-pill" data-wcat="Meme">Meme</button>
+          </div>
+
+          <div class="panel-card mt-12">
+            <div class="table-responsive">
+              <table class="terminal-table" id="table-full-watchlist">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th class="text-right">Last Price</th>
+                    <th class="text-right">24h Chg %</th>
+                    <th class="text-right">24h High</th>
+                    <th class="text-right">24h Low</th>
+                    <th class="text-right">24h Volume</th>
+                    <th>Signal State</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-full-watchlist">
+                  <tr><td colspan="8" class="text-center text-dim py-24">Loading watchlist pairs...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 8: PAPER TRADING & PORTFOLIO
+           ================================================================== -->
+      <section id="view-paper-trading" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Simulated Paper Trading Terminal</h1>
+              <p class="view-subtitle">Zero-risk institutional execution with realistic fees, slippage, and position sizing.</p>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-paper">↻ Refresh Portfolio</button>
+            </div>
+          </div>
+
+          <!-- Paper Portfolio Stats -->
+          <div class="stats-cards-grid mt-12">
+            <div class="stat-card">
+              <span class="stat-label">Available Margin</span>
+              <span class="stat-value font-mono text-green" id="paper-stat-balance">$1,000.00</span>
+              <span class="stat-sub text-dim">Uncommitted paper-trading balance</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Total Equity</span>
+              <span class="stat-value font-mono" id="paper-stat-equity">$1,000.00</span>
+              <span class="stat-sub text-dim">Available Margin + Open Position Value + Unrealized PnL</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Unrealized PnL</span>
+              <span class="stat-value font-mono" id="paper-stat-unrealized">$0.00</span>
+              <span class="stat-sub text-dim">Across Open Positions</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Realized Net Profit</span>
+              <span class="stat-value font-mono" id="paper-stat-realized">$0.00</span>
+              <span class="stat-sub text-dim">After estimated fees</span>
+            </div>
+          </div>
+
+          <div class="panel-card mt-12" id="paper-position-limit">
+            <div class="panel-header">
+              <span class="panel-title">Paper Position Limit</span>
+            </div>
+            <div class="fs-xs" id="paper-position-limit-status">Loading position limit...</div>
+            <div class="fs-xs text-dim mt-8" id="paper-closeable-positions"></div>
+            <div class="fs-xs text-dim mt-8" id="paper-portfolio-status" role="status" aria-live="polite">Loading paper portfolio...</div>
+          </div>
+
+          <!-- Paper Order Placement & Open Positions Row -->
+          <div class="overview-grid mt-16">
+            <!-- Order Form -->
+            <div class="panel-card flex-1">
+              <div class="panel-header">
+                <span class="panel-title">📝 Place Paper Order (<span id="paper-order-pair-label">BTC/USDT</span>)</span>
+              </div>
+              <div class="order-form-body p-14">
+                <p class="fs-xs text-dim">Paper orders require a fresh, active, validated signal. Entry, stop loss, and targets are taken from that signal plan. Live order execution is disabled.</p>
+                <div class="flex-gap-10">
+                  <button type="button" id="btn-paper-buy" class="btn-analyze-zone-ai flex-1 bg-btn-green">BUY / LONG</button>
+                  <button type="button" id="btn-paper-sell" class="btn-analyze-zone-ai flex-1 bg-btn-red">SELL / SHORT</button>
+                </div>
+                <div class="form-row mt-12">
+                  <label class="fs-xs text-dim" for="input-paper-amount">Position Size (USDT)</label>
+                  <input id="input-paper-amount" class="tv-input mt-4" type="number" min="0.01" step="0.01" value="100" aria-label="Position Size in USDT">
+                </div>
+                <button type="button" id="btn-paper-execute" class="btn-terminal-primary mt-16 w-full">Execute Paper Order</button>
+              </div>
+            </div>
+
+            <!-- Active Positions Table -->
+            <div class="panel-card flex-2">
+              <div class="panel-header">
+                <span class="panel-title">💼 Open Paper Positions</span>
+              </div>
+              <div class="table-responsive">
+                <table class="terminal-table" id="table-paper-positions">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Pair</th>
+                      <th>Symbol</th>
                       <th>Side</th>
-                      <th>Entry Price</th>
-                      <th>Current Price</th>
-                      <th>Size (USDT)</th>
-                      <th>Unrealized PnL</th>
+                      <th class="text-right">Amount (USDT)</th>
+                      <th class="text-right">Entry Price</th>
+                      <th class="text-right">Mark Price</th>
+                      <th class="text-right">PnL ($)</th>
+                      <th class="text-right">PnL (%)</th>
                       <th>Action</th>
                     </tr>
                   </thead>
-                  <tbody id="paper-positions-tbody">
-                    <tr><td colspan="8" style="text-align:center; padding:16px;" class="text-dim">No active simulated positions.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Trade History -->
-              <div class="analysis-card" style="padding:0; overflow:hidden;">
-                <div style="padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700;">Recent Paper Trades</div>
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Pair</th>
-                      <th>Side</th>
-                      <th>Entry</th>
-                      <th>Exit</th>
-                      <th>Realized PnL</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="paper-history-tbody">
-                    <tr><td colspan="7" style="text-align:center; padding:16px;" class="text-dim">No trade history recorded.</td></tr>
+                  <tbody id="tbody-paper-positions">
+                    <tr><td colspan="8" class="text-center text-dim py-20">No active positions.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -768,282 +870,232 @@
         </div>
       </section>
 
-      <!-- ====================================================================
-           SECTION 7: BACKTESTING (id="section-backtest")
-           ==================================================================== -->
-      <section class="section" id="section-backtest" aria-label="Backtest Engine">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Backtest Engine</span>
-            <span class="section-subtitle">Supply & Demand Confluence Historical Backtesting</span>
+      <!-- ==================================================================
+           SECTION 9: BACKTESTING
+           ================================================================== -->
+      <section id="view-backtest" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Quantitative Historical Backtester</h1>
+              <p class="view-subtitle">Walk-forward simulation with realistic execution costs, non-repainting evaluation, and MAE/MFE.</p>
+            </div>
           </div>
-        </header>
 
-        <div class="section-body">
-          <div class="two-column-layout">
-            <!-- Backtest Config Form -->
-            <div class="card-form">
-              <h3 style="font-size:14px; color:var(--text-bright); margin-bottom:4px;">Backtest Parameters</h3>
-              <div class="form-group">
-                <label class="form-label">Pair</label>
-                <select id="backtest-pair" class="form-select">
-                  <option value="BTC/USDT">BTC/USDT</option>
-                  <option value="ETH/USDT">ETH/USDT</option>
-                  <option value="SOL/USDT">SOL/USDT</option>
-                  <option value="BNB/USDT">BNB/USDT</option>
-                  <option value="XRP/USDT">XRP/USDT</option>
-                </select>
+          <!-- Controls Card -->
+          <div class="panel-card mt-12 p-14">
+            <div class="backtest-controls-row">
+              <div class="control-group">
+                <label class="fs-xs text-dim" for="bt-pair-input">Pair</label>
+                <input id="bt-pair-input" class="tv-input mt-4" type="text" value="BTC/USDT" aria-label="Backtest Trading Pair">
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Timeframe</label>
-                <select id="backtest-interval" class="form-select">
+              <div class="control-group">
+                <label class="fs-xs text-dim" for="bt-tf-select">Timeframe</label>
+                <select id="bt-tf-select" class="tv-input mt-4" aria-label="Backtest Timeframe" title="Backtest Timeframe">
+                  <option value="5m">5m</option>
                   <option value="15m" selected>15m</option>
                   <option value="1h">1h</option>
                   <option value="4h">4h</option>
                   <option value="1d">1D</option>
                 </select>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Candle Sample Size</label>
-                <select id="backtest-limit" class="form-select">
-                  <option value="300">300 candles (~3 days on 15m)</option>
-                  <option value="500" selected>500 candles (~5 days)</option>
-                  <option value="1000">1,000 candles (~10 days)</option>
+              <div class="control-group">
+                <label class="fs-xs text-dim" for="bt-limit-select">Candle Limit</label>
+                <select id="bt-limit-select" class="tv-input mt-4" aria-label="Backtest Candle Limit" title="Backtest Candle Limit">
+                  <option value="250">250 Candles</option>
+                  <option value="500" selected>500 Candles</option>
+                  <option value="1000">1000 Candles</option>
+                  <option value="1500">1500 Candles</option>
                 </select>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Initial Capital ($)</label>
-                <input type="number" id="backtest-capital" class="form-input" value="10000">
+              <div class="control-group">
+                <label class="fs-xs text-dim" for="bt-capital-input">Starting Capital ($)</label>
+                <input id="bt-capital-input" class="tv-input mt-4" type="number" value="1000" aria-label="Starting Capital in Dollars">
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Risk per Trade (%)</label>
-                <input type="number" id="backtest-risk-pct" class="form-input" value="1.5" step="0.5">
+              <div class="control-group">
+                <label class="fs-xs text-dim" for="bt-risk-input">Risk Per Trade (%)</label>
+                <input id="bt-risk-input" class="tv-input mt-4" type="number" value="1.5" step="0.1" aria-label="Risk Per Trade Percentage">
               </div>
-
-              <button type="button" id="btn-run-backtest" class="btn-primary" style="margin-top:8px;">▶ Run Backtest Simulation</button>
-            </div>
-
-            <!-- Results View -->
-            <div style="display:flex; flex-direction:column; gap:16px;">
-              <!-- Results Stats -->
-              <div class="stats-banner">
-                <div class="stat-box">
-                  <span class="stat-label">Win Rate</span>
-                  <span class="stat-value text-green" id="bt-res-winrate">--%</span>
-                </div>
-                <div class="stat-box">
-                  <span class="stat-label">Total Trades</span>
-                  <span class="stat-value" id="bt-res-trades">--</span>
-                </div>
-                <div class="stat-box">
-                  <span class="stat-label">Profit Factor</span>
-                  <span class="stat-value text-blue" id="bt-res-pf">--</span>
-                </div>
-                <div class="stat-box">
-                  <span class="stat-label">Net Profit</span>
-                  <span class="stat-value" id="bt-res-pnl">$--</span>
-                </div>
-              </div>
-
-              <!-- Backtest Trade Log Table -->
-              <div class="analysis-card" style="padding:0; overflow:hidden;">
-                <div style="padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700;">Simulated Trades Log</div>
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Entry Time</th>
-                      <th>Side</th>
-                      <th>Entry Price</th>
-                      <th>Exit Price</th>
-                      <th>Result</th>
-                      <th>PnL ($)</th>
-                    </tr>
-                  </thead>
-                  <tbody id="backtest-trades-tbody">
-                    <tr><td colspan="7" style="text-align:center; padding:16px;" class="text-dim">Configure parameters and click "Run Backtest Simulation"</td></tr>
-                  </tbody>
-                </table>
+              <div class="control-group self-end">
+                <button type="button" class="btn-terminal-primary h-32" id="btn-run-backtest">Run Backtest</button>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- ====================================================================
-           SECTION 8: PERFORMANCE (id="section-performance")
-           ==================================================================== -->
-      <section class="section" id="section-performance" aria-label="Performance Analytics">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Institutional Performance Analytics</span>
-            <span class="section-subtitle">Multi-Asset & Strategy Statistical Breakdown</span>
-          </div>
-        </header>
-
-        <div class="section-body">
-          <div class="stats-banner">
-            <div class="stat-box">
-              <span class="stat-label">Overall Win Rate</span>
-              <span class="stat-value text-green" id="perf-winrate">68.4%</span>
+          <!-- Backtest Summary Metrics -->
+          <div class="stats-cards-grid mt-16" id="bt-metrics-grid">
+            <div class="stat-card">
+              <span class="stat-label">Net Profit</span>
+              <span class="stat-value font-mono text-green" id="bt-stat-net-profit">--</span>
+              <span class="stat-sub text-dim" id="bt-stat-roi">Return on Capital</span>
             </div>
-            <div class="stat-box">
-              <span class="stat-label">Avg Profit Factor</span>
-              <span class="stat-value text-blue" id="perf-profit-factor">2.41</span>
+            <div class="stat-card">
+              <span class="stat-label">Win Rate</span>
+              <span class="stat-value font-mono" id="bt-stat-winrate">--%</span>
+              <span class="stat-sub text-dim" id="bt-stat-trades-count">-- Trades</span>
             </div>
-            <div class="stat-box">
+            <div class="stat-card">
+              <span class="stat-label">Profit Factor</span>
+              <span class="stat-value font-mono text-blue" id="bt-stat-pf">--</span>
+              <span class="stat-sub text-dim">Gross Profit / Gross Loss</span>
+            </div>
+            <div class="stat-card">
               <span class="stat-label">Max Drawdown</span>
-              <span class="stat-value text-red" id="perf-max-dd">-4.2%</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-label">Sharpe Ratio</span>
-              <span class="stat-value text-purple" id="perf-sharpe">2.18</span>
+              <span class="stat-value font-mono text-red" id="bt-stat-maxdd">--%</span>
+              <span class="stat-sub text-dim">Peak-to-Trough Drawdown</span>
             </div>
           </div>
 
-          <!-- Breakdown by Coin -->
-          <div class="analysis-card" style="padding:0; overflow:hidden;">
-            <div style="padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700;">Performance by Asset</div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Trades</th>
-                  <th>Win Rate</th>
-                  <th>Profit Factor</th>
-                  <th>Avg R:R</th>
-                  <th>Net Profit ($)</th>
-                </tr>
-              </thead>
-              <tbody id="perf-coin-tbody">
-                <!-- Populated by performance.js -->
-              </tbody>
-            </table>
+          <div class="ranking-methodology-bar mt-12" id="bt-wf-summary">
+            <span><strong>Walk-Forward Validation:</strong> In-Sample (70%) vs Out-of-Sample (30%) non-repainting closed-bar execution (SL evaluated before TP).</span>
+            <span class="font-mono text-bright" id="bt-wf-values">IS: -- | OOS: --</span>
           </div>
 
-          <!-- Breakdown by Timeframe -->
-          <div class="analysis-card" style="padding:0; overflow:hidden;">
-            <div style="padding:10px 14px; border-bottom:1px solid var(--border); font-weight:700;">Performance by Timeframe</div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Timeframe</th>
-                  <th>Signal Frequency</th>
-                  <th>Win Rate</th>
-                  <th>Expectancy</th>
-                </tr>
-              </thead>
-              <tbody id="perf-tf-tbody">
-                <!-- Populated by performance.js -->
-              </tbody>
-            </table>
+          <!-- Trade Log Table -->
+          <div class="panel-card mt-16">
+            <div class="panel-header">
+              <span class="panel-title">📜 Backtest Trade Execution Log</span>
+            </div>
+            <div class="table-responsive">
+              <table class="terminal-table" id="table-bt-trades">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Direction</th>
+                    <th>Model</th>
+                    <th class="text-right">Entry Price</th>
+                    <th class="text-right">Exit Price</th>
+                    <th class="text-right">PnL ($)</th>
+                    <th class="text-right">PnL (%)</th>
+                    <th class="text-right">MAE (%)</th>
+                    <th class="text-right">MFE (%)</th>
+                    <th>Exit Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-bt-trades">
+                  <tr><td colspan="10" class="text-center text-dim py-20">Click "Run Backtest" to evaluate strategy.</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- ====================================================================
-           SECTION 9: SETTINGS (id="section-settings")
-           ==================================================================== -->
-      <section class="section" id="section-settings" aria-label="Terminal Settings">
-        <header class="section-header">
-          <div class="section-title-group">
-            <span class="section-title">Terminal Settings & API Configuration</span>
-            <span class="section-subtitle">Manage LLM Models, Data Feeds & Preferences</span>
+      <!-- ==================================================================
+           SECTION 10: PERFORMANCE ANALYTICS
+           ================================================================== -->
+      <section id="view-performance" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Signal Performance &amp; Validation Analytics</h1>
+              <p class="view-subtitle">Empirical validation metrics across historical and walk-forward signals.</p>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="btn-terminal-sm" id="btn-refresh-performance">↻ Refresh Metrics</button>
+            </div>
           </div>
-        </header>
 
-        <div class="section-body">
-          <div class="settings-grid">
-            <!-- Card 1: API Keys -->
-            <div class="card-form">
-              <h3 style="font-size:14px; color:var(--text-bright);">API Integrations</h3>
-              <div class="form-group">
-                <label class="form-label">Google Gemini API Key</label>
-                <input type="password" id="settings-gemini-key" class="form-input" placeholder="AIzaSy...">
-                <span class="fs-xs text-dim">Enables institutional multi-modal zone analysis and chat reasoning</span>
+          <!-- Key Analytics Cards -->
+          <div class="stats-cards-grid mt-12">
+            <div class="stat-card">
+              <span class="stat-label">Overall Win Rate</span>
+              <span class="stat-value font-mono text-green" id="perf-winrate">--%</span>
+              <span class="stat-sub text-dim" id="perf-total-signals">-- Verified Signals</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Average R-Multiple</span>
+              <span class="stat-value font-mono text-blue" id="perf-avg-r">--R</span>
+              <span class="stat-sub text-dim">Risk-adjusted return per trade</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Profit Factor</span>
+              <span class="stat-value font-mono" id="perf-pf">--</span>
+              <span class="stat-sub text-dim">After fees &amp; slippage</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Longest Losing Streak</span>
+              <span class="stat-value font-mono text-dim" id="perf-losing-streak">--</span>
+              <span class="stat-sub text-dim">Max consecutive losses</span>
+            </div>
+          </div>
+
+          <!-- Performance Breakdown by Coin & Timeframe -->
+          <div class="overview-grid mt-16">
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">📊 Performance by Asset</span>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">AI Reasoning Model</label>
-                <select id="settings-ai-model" class="form-select">
-                  <option value="gemini-3-flash-preview" selected>Gemini 3 Flash Preview (Recommended)</option>
-                  <option value="gemini-flash-latest">Gemini Flash Latest</option>
-                  <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-                  <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
-                </select>
+              <div class="table-responsive">
+                <table class="terminal-table" id="table-perf-by-coin">
+                  <thead>
+                    <tr><th>Symbol</th><th class="text-right">Wins</th><th class="text-right">Losses</th><th class="text-right">Win Rate</th><th class="text-right">Total PnL %</th></tr>
+                  </thead>
+                  <tbody id="tbody-perf-by-coin">
+                    <tr><td colspan="5" class="text-center text-dim py-16">Loading asset performance...</td></tr>
+                  </tbody>
+                </table>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">CoinGecko API Key (Optional)</label>
-                <input type="password" id="settings-coingecko-key" class="form-input" placeholder="CG-...">
-                <span class="fs-xs text-dim">For extended market cap rank and fundamental telemetry</span>
-              </div>
-
-              <button type="button" id="btn-save-settings" class="btn-primary" style="margin-top:6px;">Save API Configuration</button>
             </div>
 
-            <!-- Card 2: Trading Defaults -->
-            <div class="card-form">
-              <h3 style="font-size:14px; color:var(--text-bright);">Trading Terminal Defaults</h3>
-              <div class="form-group">
-                <label class="form-label">Default Pair</label>
-                <select id="settings-default-pair" class="form-select">
-                  <option value="BTC/USDT" selected>BTC/USDT</option>
-                  <option value="ETH/USDT">ETH/USDT</option>
-                  <option value="SOL/USDT">SOL/USDT</option>
-                  <option value="BNB/USDT">BNB/USDT</option>
-                </select>
+            <div class="panel-card">
+              <div class="panel-header">
+                <span class="panel-title">⏱️ Performance by Timeframe</span>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Default Timeframe</label>
-                <select id="settings-default-tf" class="form-select">
-                  <option value="15m" selected>15m</option>
-                  <option value="1h">1h</option>
-                  <option value="4h">4h</option>
-                  <option value="1d">1D</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Default Risk per Trade (%)</label>
-                <input type="number" id="settings-default-risk" class="form-input" value="1.5" step="0.5">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Theme</label>
-                <select id="settings-theme" class="form-select" disabled>
-                  <option value="dark" selected>Institutional Pro Dark (Default)</option>
-                </select>
-              </div>
-
-              <button type="button" id="btn-save-preferences" class="btn-secondary" style="margin-top:6px;">Save Preferences</button>
-            </div>
-
-            <!-- Card 3: About AlphaQuant Pro -->
-            <div class="card-form">
-              <h3 style="font-size:14px; color:var(--text-bright);">About AlphaQuant AI Pro</h3>
-              <p class="fs-sm text-dim">
-                AlphaQuant AI Pro is a state-of-the-art institutional trading terminal integrating Smart Money Concepts (SMC),
-                Supply & Demand order blocks, Volume Profile, and Google Gemini AI real-time reasoning.
-              </p>
-              <div class="analysis-metric-row mt-8">
-                <span class="text-dim">Terminal Version:</span>
-                <span class="font-mono text-bright">2.5.0-PRO</span>
-              </div>
-              <div class="analysis-metric-row">
-                <span class="text-dim">Chart Engine:</span>
-                <span class="font-mono text-bright">Lightweight Charts v5</span>
-              </div>
-              <div class="analysis-metric-row">
-                <span class="text-dim">Execution Engine:</span>
-                <span class="font-mono text-bright">Async Binance Futures Feed</span>
+              <div class="table-responsive">
+                <table class="terminal-table" id="table-perf-by-tf">
+                  <thead>
+                    <tr><th>Timeframe</th><th class="text-right">Wins</th><th class="text-right">Losses</th><th class="text-right">Win Rate</th><th class="text-right">Total PnL %</th></tr>
+                  </thead>
+                  <tbody id="tbody-perf-by-tf">
+                    <tr><td colspan="5" class="text-center text-dim py-16">Loading timeframe metrics...</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECTION 11: SETTINGS & API CONFIGURATION
+           ================================================================== -->
+      <section id="view-settings" class="terminal-view">
+        <div class="view-scroll-body">
+          <div class="view-header-row">
+            <div>
+              <h1 class="view-title">Terminal &amp; API Configuration</h1>
+              <p class="view-subtitle">Manage environment credentials, AI model selection, and risk management parameters.</p>
+            </div>
+          </div>
+
+          <div class="panel-card mt-12 settings-card">
+            <h2 class="fs-md font-bold mb-12">🔑 Gemini AI Model &amp; Key</h2>
+            <p class="fs-xs text-dim mb-12">AlphaQuant AI Pro runs deterministic quantitative SMC and S&amp;D analysis locally. Adding a Gemini API key enables conversational explanations and natural language setup assessments.</p>
+
+            <div class="form-row">
+              <label class="fs-xs text-dim" for="setting-gemini-key">Gemini API Key</label>
+              <input id="setting-gemini-key" class="tv-input mt-4" type="password" autocomplete="off" placeholder="AIzaSy..." aria-label="Gemini API Key">
+            </div>
+
+            <div class="form-row mt-12">
+              <label class="fs-xs text-dim" for="setting-ai-model">AI Model Architecture</label>
+              <select id="setting-ai-model" class="tv-input mt-4" aria-label="AI Model Architecture" title="AI Model Architecture">
+                <option value="gemini-flash-latest" selected>Gemini Flash Latest (Fast &amp; Accurate)</option>
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+              </select>
+            </div>
+
+            <div class="tv-divider mt-16 mb-16"></div>
+
+            <h2 class="fs-md font-bold mb-12">🌐 Market Data Providers</h2>
+            <div class="metric-row"><span>Binance USDⓈ-M Futures API</span><strong class="text-green">PUBLIC ACTIVE (No key needed)</strong></div>
+            <div class="metric-row"><span>Market Cap Provider</span><strong class="text-blue">CoinGecko REST API (Active)</strong></div>
+            <div class="metric-row"><span>Trading Mode</span><strong class="text-green">Analysis &amp; Paper Trading Only (Safe)</strong></div>
+
+            <button type="button" id="btn-save-settings" class="btn-terminal-primary mt-20 w-full">Save Configuration</button>
           </div>
         </div>
       </section>
@@ -1052,42 +1104,49 @@
   </div>
 
   <!-- ======================================================================
-       SEARCHABLE INDICATORS MODAL DIALOG
+       SEARCHABLE SYMBOL PICKER MODAL (100+ BINANCE USDⓈ-M FUTURES PAIRS)
        ====================================================================== -->
-  <div id="modal-indicators" class="modal tv-modal-backdrop" aria-hidden="true">
-    <div class="modal-box tv-modal-box">
-      <div class="modal-header tv-modal-header">
-        <span class="modal-title tv-modal-title">Indicators & Overlays</span>
-        <button type="button" class="modal-close tv-modal-close" id="btn-close-indicators">&times;</button>
+  <div id="modal-symbols" class="tv-modal-backdrop">
+    <div class="tv-modal-box">
+      <div class="tv-modal-header">
+        <span class="tv-modal-title">Select Cryptocurrency Futures Pair</span>
+        <button type="button" class="tv-modal-close" id="btn-close-symbols" title="Close Symbol Picker" aria-label="Close Symbol Picker">&times;</button>
       </div>
       <div class="tv-modal-search">
-        <input id="indicator-search-input" class="tv-search-input" type="text" placeholder="Search indicators (e.g. EMA, RSI, MACD, Bollinger, Supertrend)...">
+        <input id="symbol-search-input" class="tv-search-input" type="text" placeholder="Search Binance USDⓈ-M pairs (e.g. BTC, ETH, SOL, SUI, AVAX)..." aria-label="Search Binance USD-M Futures Pairs">
       </div>
-      <div class="tv-modal-list" id="indicator-list-container">
-        <!-- Dynamically rendered by indicators_engine.js -->
+      <div class="tv-modal-list" id="symbol-list-container">
+        <div class="text-center text-dim py-16">Loading Futures contracts...</div>
       </div>
     </div>
   </div>
 
   <!-- ======================================================================
-       APPLICATION SCRIPT PIPELINE
-       Load order: lib/lightweight-charts.js, lib/marked.min.js, then app modules
+       SEARCHABLE INDICATORS MODAL DIALOG
        ====================================================================== -->
-  <script src="js/lib/lightweight-charts.js"></script>
-  <script src="js/lib/marked.min.js"></script>
-  <script src="js/indexeddb_cache.js"></script>
-  <script src="js/indicators_engine.js"></script>
-  <script src="js/chart.js"></script>
-  <script src="js/drawing_tools.js"></script>
-  <script src="js/live_feed.js"></script>
-  <script src="js/strategy_view.js"></script>
-  <script src="js/chat.js"></script>
-  <script src="js/scanner.js"></script>
-  <script src="js/signals_view.js"></script>
-  <script src="js/coin_analysis.js"></script>
-  <script src="js/watchlist.js"></script>
-  <script src="js/performance.js"></script>
-  <script src="js/settings_view.js"></script>
-  <script src="js/app.js"></script>
+  <div id="modal-indicators" class="tv-modal-backdrop">
+    <div class="tv-modal-box">
+      <div class="tv-modal-header">
+        <span class="tv-modal-title">Indicators, Overlays &amp; Oscillators</span>
+        <button type="button" class="tv-modal-close" id="btn-close-indicators" title="Close Indicators Dialog" aria-label="Close Indicators Dialog">&times;</button>
+      </div>
+      <div class="tv-modal-search">
+        <input id="indicator-search-input" class="tv-search-input" type="text" placeholder="Search indicators (e.g. EMA, RSI, MACD, VWAP, Bollinger, Supertrend)..." aria-label="Search Technical Indicators">
+      </div>
+      <div class="tv-modal-list" id="indicator-list-container">
+        <!-- Rendered dynamically by indicators_engine.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Script Pipeline -->
+  <script src="/static/js/indexeddb_cache.js"></script>
+  <script src="/static/js/indicators_engine.js"></script>
+  <script src="/static/js/chart.js"></script>
+  <script src="/static/js/drawing_tools.js"></script>
+  <script src="/static/js/live_feed.js"></script>
+  <script src="/static/js/strategy_view.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>

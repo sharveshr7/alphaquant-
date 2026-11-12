@@ -10,12 +10,14 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BASE_DIR.parent
+ROOT_ENV_PATH = PROJECT_ROOT / ".env"
 ENV_PATH = BASE_DIR / ".env"
 DASHBOARD_ENV_PATH = BASE_DIR / "dashboard" / ".env"
 
 
 def _load_env_files() -> None:
-    for env_file in (ENV_PATH, DASHBOARD_ENV_PATH):
+    for env_file in (ROOT_ENV_PATH, ENV_PATH, DASHBOARD_ENV_PATH):
         if env_file.exists():
             load_dotenv(env_file, override=True)
 
@@ -80,7 +82,7 @@ class Config:
         ]
 
         content = "\n".join(lines) + "\n"
-        for env_file in (ENV_PATH, DASHBOARD_ENV_PATH):
+        for env_file in (ROOT_ENV_PATH, ENV_PATH, DASHBOARD_ENV_PATH):
             try:
                 with env_file.open("w", encoding="utf-8") as f:
                     f.write(content)

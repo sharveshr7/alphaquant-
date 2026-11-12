@@ -9,8 +9,16 @@ Calculates Market Structure:
 - Premium, Discount, and Optimal Trade Entry (OTE 0.618 - 0.786) zones
 """
 
+import io
+from contextlib import redirect_stdout
+
 import pandas as pd
-from smartmoneyconcepts import smc
+
+try:
+    with redirect_stdout(io.StringIO()):
+        from smartmoneyconcepts import smc
+except Exception:
+    from smartmoneyconcepts import smc
 
 
 class SMCEngine:
@@ -221,6 +229,12 @@ class SMCEngine:
                     "bull_ote_786": round(bull_ote_distal, 4),
                     "bear_ote_618": round(bear_ote_proximal, 4),
                     "bear_ote_786": round(bear_ote_distal, 4),
+                    "optimal_trade_entry": {
+                        "bullish_ote_proximal": round(bull_ote_proximal, 4),
+                        "bullish_ote_distal": round(bull_ote_distal, 4),
+                        "bearish_ote_proximal": round(bear_ote_proximal, 4),
+                        "bearish_ote_distal": round(bear_ote_distal, 4),
+                    },
                     "in_premium": in_premium,
                     "in_discount": in_discount,
                     "current_regime": (
@@ -233,9 +247,15 @@ class SMCEngine:
                 }
 
         latest_bos_choch = bos_choch_events[-1] if bos_choch_events else None
+        dom_struct = (
+            "BULLISH"
+            if "BULL" in current_structure or (latest_bos_choch and latest_bos_choch.get("direction") == "BULLISH")
+            else ("BEARISH" if "BEAR" in current_structure or (latest_bos_choch and latest_bos_choch.get("direction") == "BEARISH") else "NEUTRAL")
+        )
 
         summary = {
             "current_structure": current_structure,
+            "dominant_structure": dom_struct,
             "last_structure_event": latest_bos_choch,
             "active_bullish_ob_count": len(active_bullish_ob),
             "active_bearish_ob_count": len(active_bearish_ob),

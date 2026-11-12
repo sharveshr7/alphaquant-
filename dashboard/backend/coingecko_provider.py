@@ -6,17 +6,27 @@ with local TTL caching and exponential backoff rate-limit handling.
 
 from __future__ import annotations
 
+import abc
 import asyncio
+import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 logger = logging.getLogger("coingecko_provider")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+CACHE_DIR = PROJECT_ROOT / "runtime" / "cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CG_DISK_CACHE = CACHE_DIR / "coingecko_top.json"
+if not CG_DISK_CACHE.exists() and (Path(__file__).resolve().parent.parent / "cache" / "coingecko_top.json").exists():
+    CG_DISK_CACHE = Path(__file__).resolve().parent.parent / "cache" / "coingecko_top.json"
 
 COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
+COINMARKETCAP_BASE_URL = "https://pro-api.coinmarketcap.com/v1"
 
 # Common CoinGecko symbol -> Binance USDⓈ-M Futures symbol overrides
 # Especially for 1000x multiplier contracts, rebrands, and non-standard tickers
@@ -128,7 +138,27 @@ SYMBOL_MAP: dict[str, str] = {
 REVERSE_SYMBOL_MAP: dict[str, str] = {v: k for k, v in SYMBOL_MAP.items()}
 
 
-class CoinGeckoProvider:
+class BaseMarketCapProvider(abc.ABC):
+    """Abstract base class for cryptocurrency market-cap and metadata providers."""
+
+    @abc.abstractmethod
+    async def fetch_top_coins(self, limit: int = 250) -> list[dict[str, Any]]:
+        pass
+
+    @abc.abstractmethod
+    async def get_market_cap_map(self) -> dict[str, dict[str, Any]]:
+        pass
+
+    @abc.abstractmethod
+    async def get_coin_details(self, coin_id: str) -> dict[str, Any]:
+        pass
+
+    @abc.abstractmethod
+    def to_binance_symbol(self, provider_symbol: str) -> str:
+        pass
+
+
+class CoinGeckoProvider(BaseMarketCapProvider):
     """Market-cap and coin metadata provider using CoinGecko REST API with TTL cache."""
 
     def __init__(self, api_key: str | None = None) -> None:
@@ -198,7 +228,7 @@ class CoinGeckoProvider:
                 "per_page": per_page,
                 "page": page,
                 "sparkline": "false",
-                "price_change_percentage": "24h,7d",
+                "price_change_percentage": "24h,7d,30d",
             }
 
             page_data: list[dict[str, Any]] | None = None
@@ -241,12 +271,30 @@ class CoinGeckoProvider:
             self._top_coins_cache = (now, all_coins)
             # Invalidate market_cap_map cache so it rebuilds from fresh data
             self._market_cap_map_cache = (0.0, {})
+            try:
+                CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                with CG_DISK_CACHE.open("w", encoding="utf-8") as f:
+                    json.dump({"timestamp": now, "coins": all_coins}, f)
+            except Exception as e:
+                logger.debug(f"Could not write CoinGecko disk cache: {e}")
             return all_coins[:limit]
 
-        # Fallback to expired cache if available
+        # Fallback to expired memory cache if available
         if c_data:
             logger.info("Returning expired CoinGecko top_coins cache due to fetch failure")
             return c_data[:limit]
+
+        # Fallback to last valid real CoinGecko response on disk
+        if CG_DISK_CACHE.exists():
+            try:
+                with CG_DISK_CACHE.open("r", encoding="utf-8") as f:
+                    disk_obj = json.load(f)
+                    disk_coins = disk_obj.get("coins", [])
+                    if disk_coins:
+                        self._top_coins_cache = (float(disk_obj.get("timestamp", now)), disk_coins)
+                        return disk_coins[:limit]
+            except Exception:
+                pass
 
         return []
 
@@ -363,6 +411,7 @@ class CoinGeckoProvider:
                 "total_volume": c.get("total_volume"),
                 "price_change_24h": c.get("price_change_percentage_24h"),
                 "price_change_7d": c.get("price_change_percentage_7d_in_currency"),
+                "price_change_30d": c.get("price_change_percentage_30d_in_currency"),
                 "circulating_supply": c.get("circulating_supply"),
                 "fully_diluted_valuation": c.get("fully_diluted_valuation"),
             }
@@ -379,9 +428,124 @@ class CoinGeckoProvider:
         return mapping
 
 
-# Singleton instance
+class CoinMarketCapProvider(BaseMarketCapProvider):
+    """Market-cap provider using CoinMarketCap Pro REST API with TTL cache."""
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self.api_key = (api_key or os.getenv("COINMARKETCAP_API_KEY", "")).strip()
+        self.base_url = COINMARKETCAP_BASE_URL
+        self._cache_ttl = 300.0
+        self._top_coins_cache: tuple[float, list[dict[str, Any]]] = (0.0, [])
+        self._market_cap_map_cache: tuple[float, dict[str, dict[str, Any]]] = (0.0, {})
+
+    def to_binance_symbol(self, provider_symbol: str) -> str:
+        sym_lower = provider_symbol.lower().strip()
+        if sym_lower in SYMBOL_MAP:
+            return SYMBOL_MAP[sym_lower]
+        return f"{sym_lower.upper()}USDT"
+
+    async def fetch_top_coins(self, limit: int = 250) -> list[dict[str, Any]]:
+        now = time.time()
+        c_time, c_data = self._top_coins_cache
+        if now - c_time < self._cache_ttl and c_data:
+            return c_data[:limit]
+
+        if not self.api_key:
+            logger.info("No CoinMarketCap API key provided, delegating to CoinGecko")
+            return await coingecko_provider.fetch_top_coins(limit=limit)
+
+        url = f"{self.base_url}/cryptocurrency/listings/latest"
+        headers = {
+            "Accept": "application/json",
+            "X-CMC_PRO_API_KEY": self.api_key,
+        }
+        params = {
+            "start": 1,
+            "limit": min(limit, 250),
+            "convert": "USD",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
+                res = await client.get(url, params=params)
+                if res.status_code == 200:
+                    raw = res.json().get("data", [])
+                    coins = []
+                    for item in raw:
+                        usd = item.get("quote", {}).get("USD", {})
+                        coins.append({
+                            "id": str(item.get("id")),
+                            "symbol": item.get("symbol", "").lower(),
+                            "name": item.get("name"),
+                            "market_cap_rank": item.get("cmc_rank"),
+                            "market_cap": usd.get("market_cap"),
+                            "current_price": usd.get("price"),
+                            "total_volume": usd.get("volume_24h"),
+                            "price_change_percentage_24h": usd.get("percent_change_24h"),
+                            "price_change_percentage_7d_in_currency": usd.get("percent_change_7d"),
+                            "price_change_percentage_30d": usd.get("percent_change_30d"),
+                            "circulating_supply": item.get("circulating_supply"),
+                            "fully_diluted_valuation": usd.get("fully_diluted_market_cap"),
+                        })
+                    if coins:
+                        self._top_coins_cache = (now, coins)
+                        return coins[:limit]
+        except Exception as e:
+            logger.warning(f"CoinMarketCap API request failed: {e}. Falling back to CoinGecko.")
+
+        return await coingecko_provider.fetch_top_coins(limit=limit)
+
+    async def get_market_cap_map(self) -> dict[str, dict[str, Any]]:
+        now = time.time()
+        c_time, c_map = self._market_cap_map_cache
+        if now - c_time < self._cache_ttl and c_map:
+            return c_map
+
+        coins = await self.fetch_top_coins(limit=250)
+        mapping: dict[str, dict[str, Any]] = {}
+        for c in coins:
+            cg_symbol = str(c.get("symbol", "")).lower()
+            coin_id = str(c.get("id", "")).lower()
+            binance_sym = self.to_binance_symbol(cg_symbol)
+
+            coin_summary = {
+                "coin_id": coin_id,
+                "coin_name": c.get("name"),
+                "cg_symbol": cg_symbol,
+                "market_cap": c.get("market_cap"),
+                "market_cap_rank": c.get("market_cap_rank"),
+                "current_price": c.get("current_price"),
+                "total_volume": c.get("total_volume"),
+                "price_change_24h": c.get("price_change_percentage_24h"),
+                "price_change_7d": c.get("price_change_percentage_7d_in_currency"),
+                "price_change_30d": c.get("price_change_percentage_30d"),
+                "circulating_supply": c.get("circulating_supply"),
+                "fully_diluted_valuation": c.get("fully_diluted_valuation"),
+            }
+            mapping[binance_sym] = coin_summary
+            base_asset = binance_sym.removesuffix("USDT")
+            mapping[base_asset] = coin_summary
+
+        if mapping:
+            self._market_cap_map_cache = (now, mapping)
+        return mapping
+
+    async def get_coin_details(self, coin_id: str) -> dict[str, Any]:
+        return await coingecko_provider.get_coin_details(coin_id)
+
+
+def get_market_cap_provider() -> BaseMarketCapProvider:
+    """Factory returns CoinMarketCapProvider if COINMARKETCAP_API_KEY is configured, else CoinGeckoProvider."""
+    cmc_key = os.getenv("COINMARKETCAP_API_KEY", "").strip()
+    if cmc_key:
+        return CoinMarketCapProvider(cmc_key)
+    return coingecko_provider
+
+
+# Singleton instance (default)
 coingecko_provider = CoinGeckoProvider()
 
 # Module-level aliases for direct imports
 fetch_top_coins = coingecko_provider.fetch_top_coins
 get_coin_details = coingecko_provider.get_coin_details
+

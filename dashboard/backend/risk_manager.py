@@ -12,7 +12,52 @@ Enforces:
 """
 
 from dataclasses import asdict, dataclass
+import math
 import time
+
+
+def validate_trade_plan(
+    direction: str,
+    entry_price: float | None,
+    stop_loss: float | None,
+    tp1: float | None,
+    tp2: float | None,
+    tp3: float | None,
+    min_risk_reward: float = 1.8,
+) -> tuple[bool, str, float]:
+    """Validate a complete directional plan and calculate gross R:R to TP2."""
+    try:
+        entry, stop, target1, target2, target3 = (
+            float(value)
+            for value in (entry_price, stop_loss, tp1, tp2, tp3)
+        )
+    except (TypeError, ValueError):
+        return False, "Entry, stop loss, and all three take-profit levels are required.", 0.0
+
+    if not all(math.isfinite(value) and value > 0 for value in (entry, stop, target1, target2, target3)):
+        return False, "All trade-plan levels must be finite positive prices.", 0.0
+
+    normalized_direction = direction.upper()
+    if normalized_direction == "LONG":
+        correctly_ordered = stop < entry < target1 < target2 < target3
+    elif normalized_direction == "SHORT":
+        correctly_ordered = target3 < target2 < target1 < entry < stop
+    else:
+        return False, "Trade direction must be LONG or SHORT.", 0.0
+
+    if not correctly_ordered:
+        return False, f"Trade-plan levels are not correctly ordered for {normalized_direction}.", 0.0
+
+    risk = abs(entry - stop)
+    reward = abs(target2 - entry)
+    risk_reward = reward / risk
+    if not math.isfinite(risk_reward) or risk_reward < min_risk_reward:
+        return (
+            False,
+            f"Risk/reward {risk_reward:.2f} is below minimum threshold ({min_risk_reward:.2f}).",
+            risk_reward,
+        )
+    return True, "Valid trade plan.", risk_reward
 
 
 @dataclass

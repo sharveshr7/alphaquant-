@@ -22,6 +22,18 @@ from .config import config
 
 logger = logging.getLogger("ai_assistant")
 
+
+def _fmt_usd_opt(val: Any) -> str:
+    """Safely formats optional USD prices with adaptive precision or N/A."""
+    try:
+        fv = float(val)
+        if fv > 0:
+            dec = 6 if fv < 0.01 else 4 if fv < 1 else 2
+            return f"${fv:,.{dec}f}"
+    except (TypeError, ValueError):
+        pass
+    return "N/A"
+
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 CANDIDATE_MODELS = [
@@ -67,20 +79,21 @@ def _format_smc_telemetry(smc_data: dict[str, Any] | None) -> str:
     prem_disc = smc_data.get("premium_discount", {})
     last_evt = summary.get("last_structure_event")
     evt_str = (
-        f"{last_evt['type']} {last_evt['direction']} at ${last_evt['level']:,.2f}"
+        f"{last_evt['type']} {last_evt['direction']} at {_fmt_usd_opt(last_evt.get('level'))}"
         if last_evt
         else "None"
     )
     regime = prem_disc.get("current_regime", "Neutral")
-    eq_50 = prem_disc.get("equilibrium_50", 0.0)
+    eq_50 = _fmt_usd_opt(prem_disc.get("equilibrium_50"))
     bull_ob = summary.get("active_bullish_ob_count", 0)
     bear_ob = summary.get("active_bearish_ob_count", 0)
     fvg_count = summary.get("active_fvg_count", 0)
+    struct_dir = summary.get("dominant_structure") or summary.get("current_structure") or "NEUTRAL"
 
     return (
-        f"- Market Structure: {summary.get('current_structure', 'NEUTRAL')}\n"
+        f"- Market Structure: {struct_dir}\n"
         f"- Latest Structure Break: {evt_str}\n"
-        f"- Valuation Regime: {regime} (50% Equilibrium: ${eq_50:,.2f})\n"
+        f"- Valuation Regime: {regime} (50% Equilibrium: {eq_50})\n"
         f"- Active Unmitigated Order Blocks: {bull_ob} Bullish / {bear_ob} Bearish\n"
         f"- Active Fair Value Gaps (FVG): {fvg_count}\n"
     )
@@ -153,16 +166,79 @@ def _format_signal_telemetry(signal_data: dict[str, Any] | None) -> str:
         f"Setup Score: {signal_data.get('setup_score', 0)}/100\n"
         f"- Primary Recommended Model: {signal_data.get('primary_model', 'N/A')}\n"
         f"  * Model A (Aggressive Limit): Status={mod_a.get('status', 'N/A')}, "
-        f"Entry=${mod_a.get('entry_price', 0):,.2f}, SL=${mod_a.get('stop_loss', 0):,.2f}, "
-        f"TP2=${mod_a.get('tp2', 0):,.2f}, Score={mod_a.get('setup_score', 0)}\n"
+        f"Entry={_fmt_usd_opt(mod_a.get('entry_price'))}, SL={_fmt_usd_opt(mod_a.get('stop_loss'))}, "
+        f"TP2={_fmt_usd_opt(mod_a.get('tp2'))}, Score={mod_a.get('setup_score', 0)}\n"
         f"  * Model B (Confirmation): Status={mod_b.get('status', 'N/A')}, "
-        f"Entry=${mod_b.get('entry_price', 0):,.2f}, SL=${mod_b.get('stop_loss', 0):,.2f}, "
-        f"TP2=${mod_b.get('tp2', 0):,.2f}, Score={mod_b.get('setup_score', 0)}\n"
+        f"Entry={_fmt_usd_opt(mod_b.get('entry_price'))}, SL={_fmt_usd_opt(mod_b.get('stop_loss'))}, "
+        f"TP2={_fmt_usd_opt(mod_b.get('tp2'))}, Score={mod_b.get('setup_score', 0)}\n"
         f"  * Model C (Conservative FVG): Status={mod_c.get('status', 'N/A')}, "
-        f"Entry=${mod_c.get('entry_price', 0):,.2f}, SL=${mod_c.get('stop_loss', 0):,.2f}, "
-        f"TP2=${mod_c.get('tp2', 0):,.2f}, Score={mod_c.get('setup_score', 0)}\n"
-        f"- Invalidation Level: ${signal_data.get('invalidation_level', 0):,.2f}\n"
+        f"Entry={_fmt_usd_opt(mod_c.get('entry_price'))}, SL={_fmt_usd_opt(mod_c.get('stop_loss'))}, "
+        f"TP2={_fmt_usd_opt(mod_c.get('tp2'))}, Score={mod_c.get('setup_score', 0)}\n"
+        f"- Invalidation Level: {_fmt_usd_opt(signal_data.get('invalidation_level'))}\n"
     )
+
+
+def _format_manual_zones_telemetry(manual_sd: dict[str, Any] | None) -> str:
+    """Formats user-drawn manual Supply and Demand zones and overlap analysis."""
+    if not manual_sd:
+        return "No manual zones drawn by user."
+    zones = manual_sd.get("zones", [])
+    overlaps = manual_sd.get("overlaps", [])
+    if not zones:
+        return "No manual supply or demand zones drawn on current chart."
+
+    lines = []
+    lines.append(f"Total User Drawings Analyzed: {len(zones)}")
+    for z in zones:
+        lines.append(
+            f"- Manual {z.get('zone_type')} [${z.get('distal', 0):,.2f} - ${z.get('proximal', 0):,.2f}]: "
+            f"Classification: `{z.get('classification')}` (Score: {z.get('quality_score')}/100) | "
+            f"Freshness: {z.get('evaluation_criteria', {}).get('freshness', 'N/A')} | "
+            f"Mitigation: {z.get('mitigation_pct', 0)}% across {z.get('retest_count', 0)} touch(es) | "
+            f"Displacement: {z.get('evaluation_criteria', {}).get('departure_strength', 'N/A')} | "
+            f"Width: {z.get('height_in_atr', 0)}x ATR | Reason: {z.get('classification_reason')}"
+        )
+    if overlaps:
+        lines.append(f"Overlap Intelligence ({len(overlaps)} overlapping relationship(s)):")
+        for ov in overlaps:
+            lines.append(
+                f"  * Overlap between {ov.get('zone_id_1')} and {ov.get('zone_id_2')} ({ov.get('zone_type')}): "
+                f"Range [${ov.get('overlap_price_range', [0, 0])[0]:,.2f} - ${ov.get('overlap_price_range', [0, 0])[1]:,.2f}]. "
+                f"Stronger Zone: {ov.get('stronger_zone_id')}. Suggestion: {ov.get('consolidation_suggestion', {}).get('recommendation', 'Consolidate')}"
+            )
+    return "\n".join(lines)
+
+
+def _format_11_tools_telemetry(tools: dict[str, Any] | None) -> str:
+    """Formats the 11 independent analytical tools into telemetry."""
+    if not tools:
+        return "11-tool engine telemetry not provided."
+    lines = []
+    for k, v in tools.items():
+        if isinstance(v, dict):
+            name = v.get("name", k)
+            bias = v.get("bias", "NEUTRAL")
+            score = v.get("score", 50)
+            ev = "; ".join(v.get("evidence", [])[:2])
+            lines.append(f"- Tool [{name}]: Bias: `{bias}` | Score: {score}/100 | Evidence: {ev}")
+    return "\n".join(lines)
+
+
+def _format_future_scenarios_telemetry(scenarios: dict[str, Any] | None) -> str:
+    """Formats Bullish, Bearish, and Neutral market scenarios."""
+    if not scenarios:
+        return "Scenario forecasting not available."
+    lines = []
+    bull = scenarios.get("bullish_scenario", {})
+    if bull:
+        lines.append(f"- Bullish Scenario: Targets {bull.get('potential_upside_areas')} | Confirm: {'; '.join(bull.get('conditions_required_for_confirmation', [])[:2])} | Invalidation: {bull.get('invalidation_conditions')}")
+    bear = scenarios.get("bearish_scenario", {})
+    if bear:
+        lines.append(f"- Bearish Scenario: Targets {bear.get('potential_downside_areas')} | Confirm: {'; '.join(bear.get('conditions_required_for_confirmation', [])[:2])} | Invalidation: {bear.get('invalidation_conditions')}")
+    neut = scenarios.get("neutral_scenario", {})
+    if neut:
+        lines.append(f"- Neutral Scenario: Range {neut.get('consolidation_range')} | Breakout conditions: {'; '.join(neut.get('conditions_that_could_cause_breakout', [])[:2])}")
+    return "\n".join(lines)
 
 
 def _build_full_context(
@@ -176,6 +252,10 @@ def _build_full_context(
     mtf_data: dict[str, Any] | None,
     signal_data: dict[str, Any] | None,
     portfolio_data: dict[str, Any] | None,
+    manual_sd: dict[str, Any] | None = None,
+    tools: dict[str, Any] | None = None,
+    scenarios: dict[str, Any] | None = None,
+    combined_decision: dict[str, Any] | None = None,
 ) -> str:
     """Builds unified validated telemetry prompt for Gemini API."""
     mtf_str = ""
@@ -207,28 +287,47 @@ def _build_full_context(
             f"Win Rate: {portfolio_data.get('win_rate', 0)}%\n"
         )
 
+    decision_str = ""
+    if combined_decision:
+        decision_str = (
+            f"- Final Decision: `{combined_decision.get('decision', 'NO TRADE')}`\n"
+            f"- Confluence Score: {combined_decision.get('overall_confluence_score', 0)}/100 | Risk: {combined_decision.get('risk_classification', 'MODERATE')}\n"
+            f"- Bullish Confluences: {'; '.join(combined_decision.get('bullish_evidence', [])[:3]) or 'None'}\n"
+            f"- Bearish Confluences: {'; '.join(combined_decision.get('bearish_evidence', [])[:3]) or 'None'}\n"
+            f"- Conflicts Penalizing Score: {'; '.join(combined_decision.get('conflicting_evidence', [])[:3]) or 'None'}\n"
+        )
+
     return f"""=== LIVE VALIDATED MARKET DATA ===
 Symbol: {pair} | Current Timeframe: {interval} | Live Price: ${current_price:,.2f}
 
-=== 1. SUPPLY & DEMAND ZONES (PHASE 2) ===
+=== 1. USER MANUAL SUPPLY & DEMAND ZONES & OVERLAP DETECTION ===
+{_format_manual_zones_telemetry(manual_sd)}
+
+=== 2. ELEVEN INDEPENDENT MARKET ANALYSIS TOOLS ===
+{_format_11_tools_telemetry(tools)}
+
+=== 3. AUTO SUPPLY & DEMAND ZONES ===
 {_format_sd_telemetry(sd_data)}
 
-=== 2. SMART MONEY CONCEPTS (SMC) ===
+=== 4. SMART MONEY CONCEPTS (SMC) ===
 {_format_smc_telemetry(smc_data)}
 
-=== 3. ORDER FLOW & VOLUME PROFILE ===
+=== 5. ORDER FLOW & VOLUME PROFILE ===
 {_format_orderflow_telemetry(orderflow_data)}
 
-=== 4. LIQUIDITY INTELLIGENCE (L2 DEPTH & POOLS) ===
+=== 6. LIQUIDITY INTELLIGENCE (L2 DEPTH & POOLS) ===
 {_format_liquidity_telemetry(liquidity_data)}
 
-=== 5. MULTI-TIMEFRAME 4-TIER PIPELINE ===
+=== 7. MULTI-TIMEFRAME 4-TIER PIPELINE ===
 {mtf_str or "MTF data unavailable."}
 
-=== 6. DETERMINISTIC SIGNAL & 3 ENTRY MODELS ===
-{_format_signal_telemetry(signal_data)}
+=== 8. COMBINED DECISION & AUDIT ===
+{decision_str or _format_signal_telemetry(signal_data)}
 
-=== 7. PORTFOLIO & RISK STATE ===
+=== 9. FUTURE MARKET SCENARIOS (BULLISH / BEARISH / NEUTRAL) ===
+{_format_future_scenarios_telemetry(scenarios)}
+
+=== 10. PORTFOLIO & RISK STATE ===
 {port_str or "Portfolio idle."}
 """
 
@@ -269,23 +368,36 @@ async def generate_ai_response(
     signal_data: dict[str, Any] | None = None,
     portfolio_data: dict[str, Any] | None = None,
     confluence: dict[str, Any] | None = None,
+    manual_sd: dict[str, Any] | None = None,
+    tools: dict[str, Any] | None = None,
+    scenarios: dict[str, Any] | None = None,
+    combined_decision: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Generates an institutional quantitative analysis response for the trader."""
     _ = (confluence, kwargs)
     api_key = config.gemini_api_key
 
+    manual_sd = manual_sd or kwargs.get("manual_sd") or kwargs.get("manual_zone_analysis")
+    tools = tools or kwargs.get("tools")
+    scenarios = scenarios or kwargs.get("scenarios") or kwargs.get("future_scenarios")
+    combined_decision = combined_decision or kwargs.get("combined_decision")
+
     full_context = _build_full_context(
-        pair,
-        interval,
-        current_price,
-        sd_data,
-        smc_data,
-        orderflow_data,
-        liquidity_data,
-        mtf_data,
-        signal_data,
-        portfolio_data,
+        pair=pair,
+        interval=interval,
+        current_price=current_price,
+        sd_data=sd_data,
+        smc_data=smc_data,
+        orderflow_data=orderflow_data,
+        liquidity_data=liquidity_data,
+        mtf_data=mtf_data,
+        signal_data=signal_data,
+        portfolio_data=portfolio_data,
+        manual_sd=manual_sd,
+        tools=tools,
+        scenarios=scenarios,
+        combined_decision=combined_decision,
     )
 
     if api_key:
@@ -332,15 +444,20 @@ async def generate_ai_response(
                 logger.warning("Error requesting %s: %s", model_name, e)
 
     return rule_based_analyst(
-        user_message,
-        pair,
-        interval,
-        current_price,
-        indicators,
-        sd_data,
-        smc_data,
-        signal_data,
-        liquidity_data,
+        user_message=user_message,
+        pair=pair,
+        interval=interval,
+        current_price=current_price,
+        indicators=indicators,
+        sd_data=sd_data,
+        smc_data=smc_data,
+        sig_data=signal_data,
+        liq_data=liquidity_data,
+        mtf_data=mtf_data,
+        manual_sd=manual_sd,
+        tools=tools,
+        scenarios=scenarios,
+        combined_decision=combined_decision,
     )
 
 
@@ -349,13 +466,19 @@ def rule_based_analyst(
     pair: str,
     interval: str,
     current_price: float,
-    indicators: dict[str, Any],
-    sd_data: dict[str, Any] | None,
-    smc_data: dict[str, Any] | None,
-    sig_data: dict[str, Any] | None,
-    liq_data: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Deterministic institutional rule-based analyst for offline or keyless operation."""
+    indicators: dict,
+    sd_data: dict | None,
+    smc_data: dict | None,
+    sig_data: dict | None,
+    liq_data: dict | None = None,
+    mtf_data: dict | None = None,
+    manual_sd: dict | None = None,
+    tools: dict | None = None,
+    scenarios: dict | None = None,
+    combined_decision: dict | None = None,
+) -> dict:
+    """Deterministic institutional rule-based analyst grounded in live calculations."""
+    q = user_message.lower()
     sig = sig_data or {}
     demands = (sd_data or {}).get("demand", [])
     supplies = (sd_data or {}).get("supply", [])
@@ -364,9 +487,11 @@ def rule_based_analyst(
     s_info = (
         f"${supplies[0]['proximal']:,.2f} - ${supplies[0]['distal']:,.2f}" if supplies else "None"
     )
-    rsi_val = indicators.get("rsi", "N/A")
-    ema50 = indicators.get("ema_50", "N/A")
-    structure = (smc_data or {}).get("summary", {}).get("current_structure", "NEUTRAL")
+    lat = indicators.get("latest", indicators) if isinstance(indicators, dict) else {}
+    rsi_val = lat.get("rsi", "N/A")
+    ema50 = lat.get("ema_50", "N/A")
+    smc_sum = (smc_data or {}).get("summary", {})
+    structure = smc_sum.get("dominant_structure") or smc_sum.get("current_structure") or smc_sum.get("current_trend", "NEUTRAL")
 
     d_score = demands[0].get("quality_score", 0) if demands else 0
     d_state = demands[0].get("lifecycle_state", "ACTIVE") if demands else "N/A"
@@ -374,22 +499,135 @@ def rule_based_analyst(
     l2_bias = (liq_data or {}).get("orderbook_l2", {}).get("bias", "BALANCED")
     sig_state = sig.get("state", "WAITING")
     sig_dir = sig.get("direction", "NEUTRAL")
-    entry_p = sig.get("entry_price", current_price)
-    stop_p = sig.get("stop_loss", 0)
-    tp1 = sig.get("tp1", 0)
-    tp2 = sig.get("tp2", 0)
-    tp3 = sig.get("tp3", 0)
-    inv_p = sig.get("invalidation_level", 0)
 
+    entry_txt = _fmt_usd_opt(sig.get("entry_price"))
+    stop_txt = _fmt_usd_opt(sig.get("stop_loss"))
+    tp1_txt = _fmt_usd_opt(sig.get("tp1"))
+    tp2_txt = _fmt_usd_opt(sig.get("tp2"))
+    tp3_txt = _fmt_usd_opt(sig.get("tp3"))
+    inv_txt = _fmt_usd_opt(sig.get("invalidation_level"))
+
+    manual_zones = (manual_sd or {}).get("zones", [])
+    overlaps = (manual_sd or {}).get("overlaps", [])
+    bull_scen = (scenarios or {}).get("bullish_scenario", {})
+    bear_scen = (scenarios or {}).get("bearish_scenario", {})
+    c_dec = combined_decision or {}
+
+    # 1. Specialized Handler: Zone validation / freshness / mitigation inquiry
+    if any(w in q for w in ["supply zone", "demand zone", "is my", "fresh", "mitigated", "reject", "break"]):
+        zone_report = ""
+        if manual_zones:
+            z_lines = []
+            for mz in manual_zones:
+                crit = mz.get("evaluation_criteria", {})
+                z_lines.append(
+                    f"**Manual {mz.get('zone_type')} Zone** [${mz.get('distal', 0):,.2f} - ${mz.get('proximal', 0):,.2f}]:\n"
+                    f"* **Classification**: `{mz.get('classification')}` (Quality Score: **{mz.get('quality_score')}/100**)\n"
+                    f"* **Freshness & Mitigation**: {crit.get('freshness', 'N/A')} ({mz.get('mitigation_pct')}% penetration, {mz.get('retest_count')} touches)\n"
+                    f"* **Departure Impulse**: {crit.get('departure_strength')} with {crit.get('volume_confirmation')}\n"
+                    f"* **Structural Alignment**: {crit.get('higher_timeframe_alignment')} | {crit.get('bos_confirmation')}\n"
+                    f"* **Assessment**: {mz.get('classification_reason')}\n"
+                )
+            zone_report = "\n".join(z_lines)
+            if overlaps:
+                zone_report += f"\n\n**⚠️ Overlapping Zones Alert**: {len(overlaps)} overlapping zone pair(s) detected. "
+                for ov in overlaps:
+                    zone_report += f"\n- Suggest consolidation into range [${ov.get('overlap_price_range', [0, 0])[0]:,.2f} - ${ov.get('overlap_price_range', [0, 0])[1]:,.2f}]. Primary institutional POI: {ov.get('stronger_zone_id')}."
+        else:
+            zone_report = (
+                f"* **Nearest Auto Demand**: {d_info} (Score: {d_score}/100, State: `{d_state}`)\n"
+                f"* **Nearest Auto Supply**: {s_info} (Score: {s_score}/100)\n"
+                f"* *No manual zones drawn yet. Draw a green rectangle for Demand or red rectangle for Supply to receive instant quantitative verification.*"
+            )
+
+        response = f"""### 🛡️ Manual Supply & Demand Validation: **{pair}** ({interval})
+
+{zone_report}
+
+#### **Institutional Rejection vs Breakout Assessment**:
+* **Current Market Price**: **${current_price:,.2f}**
+* **Confirmation Required Before Entry**: Do not front-run limit orders in tested zones. Wait for 5m/15m Change of Character (CHoCH) wick rejection with expanding volume (>1.2x SMA).
+* **Structural Invalidation**: Clean candle close beyond the distal boundary cancels the institutional setup.
+"""
+        return {"response": response, "model_used": "AlphaQuant Zone Validation Engine", "source": "zone_engine", "engine": "deterministic_quant_engine"}
+
+    # 2. Specialized Handler: Invalidation inquiry
+    if any(w in q for w in ["invalidate", "invalidation", "stop loss"]):
+        response = f"""### 🛑 Structural Invalidation Analysis: **{pair}** ({interval})
+
+* **Current Market Price**: **${current_price:,.2f}**
+* **Active Direction**: `{sig_dir}` | Setup State: `{sig_state}`
+* **Calculated Invalidation Level**: **{inv_txt}**
+* **Structural Stop Loss**: **{stop_txt}**
+* **Exact Invalidation Condition**:
+  - For **LONG**: A confirmed 15m candle close below the Demand zone distal boundary (${demands[0]['distal']:,.2f} if demands else {stop_txt}) structurally breaks buyer defense and invalidates the setup.
+  - For **SHORT**: A confirmed 15m candle close above the Supply zone distal boundary (${supplies[0]['distal']:,.2f} if supplies else {stop_txt}) indicates institutional absorption and invalidates the short.
+"""
+        return {"response": response, "model_used": "AlphaQuant Risk Engine", "source": "risk_engine", "engine": "deterministic_quant_engine"}
+
+    # 3. Specialized Handler: Bearish / Bullish Alternative / Scenarios
+    if any(w in q for w in ["bearish alternative", "bullish alternative", "scenario", "alternative"]):
+        response = f"""### 🔮 Market Scenario Forecast: **{pair}** ({interval})
+
+#### 🟢 **Bullish Scenario**:
+* **Upside Target Areas**: {', '.join(bull_scen.get('potential_upside_areas', [])) or 'Nearest Supply Zone'}
+* **Confirmation Triggers**: {'; '.join(bull_scen.get('conditions_required_for_confirmation', [])) or '15m Bullish CHoCH + Volume expansion'}
+* **Liquidity Targets**: {', '.join(bull_scen.get('liquidity_targets', [])) or 'Buy-Side Liquidity Pool'}
+* **Invalidation**: {bull_scen.get('invalidation_conditions', 'Break of local low')}
+
+#### 🔴 **Bearish Alternative Scenario**:
+* **Downside Target Areas**: {', '.join(bear_scen.get('potential_downside_areas', [])) or 'Nearest Demand Zone'}
+* **Confirmation Triggers**: {'; '.join(bear_scen.get('conditions_required_for_confirmation', [])) or '15m Bearish CHoCH + Volume spike'}
+* **Liquidity Targets**: {', '.join(bear_scen.get('liquidity_targets', [])) or 'Sell-Side Liquidity Pool'}
+* **Invalidation**: {bear_scen.get('invalidation_conditions', 'Break of local high')}
+"""
+        return {"response": response, "model_used": "AlphaQuant Scenario Engine", "source": "scenario_engine", "engine": "deterministic_quant_engine"}
+
+    # 4. Specialized Handler: Timeframe inquiry
+    if any(w in q for w in ["which timeframe", "timeframe controls", "mtf", "controlling"]):
+        mtf_bias = (mtf_data or {}).get("overall_bias", "MIXED")
+        matrix = (mtf_data or {}).get("matrix", [])
+        m_str = "\n".join([f"- **{m['timeframe'].upper()}**: Bias `{m['bias']}` | RSI {m.get('rsi')} | Trend vs EMA50" for m in matrix]) if matrix else "Multi-timeframe data syncing."
+        response = f"""### ⏱️ Multi-Timeframe Structural Hierarchy: **{pair}**
+
+* **Controlling Higher Timeframe (Macro Bias)**: **4H & 1D** govern institutional trend and major liquidity pools. Current 4H/1D bias: **`{mtf_bias}`**.
+* **Intermediate Framework**: **1H & 15M** establish swing structure (BOS/CHoCH) and operational Supply & Demand zones.
+* **Tactical Execution Timeframe**: **5M & 15M** provide entry triggers (micro-sweeps and order block retests).
+
+#### **Alignment Matrix Across Closed Bars**:
+{m_str}
+"""
+        return {"response": response, "model_used": "AlphaQuant MTF Engine", "source": "mtf_engine", "engine": "deterministic_quant_engine"}
+
+    # 5. Specialized Handler: Why NO TRADE?
+    if any(w in q for w in ["why no trade", "no trade", "recommend no trade", "why no"]):
+        reasons_against = c_dec.get("conflicting_evidence", []) or ["Price is in mid-range equilibrium between key zones"]
+        reasons_formatted = "\n".join([f"- ⚠️ {r}" for r in reasons_against])
+        response = f"""### 🛡️ Why System Recommends NO TRADE: **{pair}** ({interval})
+
+* **Combined Confluence Score**: **{c_dec.get('overall_confluence_score', sig.get('setup_score', 0))}/100** (Threshold for trade generation is >= 70)
+* **Risk Classification**: `{c_dec.get('risk_classification', 'MODERATE_RISK')}`
+
+#### **Conflicting Evidence & Missing Confirmations**:
+{reasons_formatted}
+
+#### **What Must Happen Next Before a Trade Is Validated**:
+- Wait for price to cleanly arrive at Demand (${d_info}) or Supply (${s_info}).
+- Require confirmed Lower-Timeframe Change of Character (CHoCH) on expanding volume (>1.2x).
+- Avoid gambling in mid-range equilibrium chop. Capital preservation is priority #1.
+"""
+        return {"response": response, "model_used": "AlphaQuant Confluence Engine", "source": "confluence_engine", "engine": "deterministic_quant_engine"}
+
+    # Default Comprehensive Response
     response = f"""### 🤖 AlphaQuant Quantitative Intelligence: **{pair}** ({interval})
-*Analysis context for inquiry: "{user_message}"*
+*Analysis context for inquiry: \"{user_message}\"*
 
 #### **Executive Assessment**:
 * **Current Validated Price**: **${current_price:,.2f}**
 * **Market Structure**: `{structure}` | RSI: `{rsi_val}` | EMA 50: `{ema50}`
 * **Deterministic Signal State**: `{sig_state}` ({sig_dir})
-* **Setup Score**: **{sig.get("setup_score", 0)} / 100**
-* **Primary Entry Model**: `{sig.get("primary_model", "MODEL_B_CONFIRMATION_SWEEP_CHOCH")}`
+* **Overall Confluence Score**: **{c_dec.get('overall_confluence_score', sig.get('setup_score', 0))} / 100**
+* **Risk Classification**: `{c_dec.get('risk_classification', 'MODERATE')}`
 
 #### **Key Institutional Levels & Liquidity**:
 * **Nearest Demand (Support)**: **{d_info}** ({d_score}/100 Quality, {d_state})
@@ -397,14 +635,14 @@ def rule_based_analyst(
 * **L2 Depth Imbalance**: {l2_bias}
 
 #### **Precision Entry Models Breakdown**:
-* **Model A (Aggressive Limit)**: Entry near **${entry_p:,.2f}** | SL **${stop_p:,.2f}**
+* **Model A (Aggressive Limit)**: Entry **{entry_txt}** | SL **{stop_txt}**
 * **Model B (Confirmation Sweep)**: Triggered upon liquidity sweep + CHoCH close confirmation.
 * **Model C (Conservative FVG)**: Triggered upon displacement + Fair Value Gap retest.
-* **Structural Targets**: TP1 **${tp1:,.2f}** | TP2 **${tp2:,.2f}** | TP3 **${tp3:,.2f}**
-* **Invalidation Level**: **${inv_p:,.2f}**
+* **Structural Targets**: TP1 **{tp1_txt}** | TP2 **{tp2_txt}** | TP3 **{tp3_txt}**
+* **Invalidation Level**: **{inv_txt}**
 
 #### **Risk & Execution Guidelines**:
-* Risk strictly <= 1.5% per trade. Position size must not exceed the calculated stop distance.
+* Risk strictly <= 1.5% per trade. Position sizing must match the distance to structural stop loss.
 """
 
     return {

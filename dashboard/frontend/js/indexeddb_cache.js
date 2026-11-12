@@ -38,6 +38,37 @@ class CandleCacheDB {
     });
   }
 
+  sanitize(candles) {
+    if (!Array.isArray(candles)) return [];
+    const byTime = new Map();
+    for (const raw of candles) {
+      if (!raw || typeof raw !== "object") continue;
+      const t = Number(raw.time);
+      const o = Number(raw.open);
+      const h0 = Number(raw.high);
+      const l0 = Number(raw.low);
+      const c = Number(raw.close);
+      const v = raw.volume === undefined ? 0 : Number(raw.volume);
+      if (
+        !Number.isFinite(t) || t <= 0 ||
+        !Number.isFinite(o) || !Number.isFinite(h0) || !Number.isFinite(l0) || !Number.isFinite(c) ||
+        !Number.isFinite(v) || v < 0 ||
+        o <= 0 || h0 <= 0 || l0 <= 0 || c <= 0 || h0 < l0
+      ) {
+        continue;
+      }
+      byTime.set(Math.floor(t), {
+        time: Math.floor(t),
+        open: o,
+        high: Math.max(h0, o, c),
+        low: Math.min(l0, o, c),
+        close: c,
+        volume: v,
+      });
+    }
+    return Array.from(byTime.values()).sort((a, b) => a.time - b.time);
+  }
+
   getKey(pair, interval) {
     const cleanPair = (pair || "BTC/USDT").replace("/", "").toUpperCase();
     return `${cleanPair}_${interval}`;
@@ -56,7 +87,8 @@ class CandleCacheDB {
 
         req.onsuccess = () => {
           if (req.result && Array.isArray(req.result.candles) && req.result.candles.length > 0) {
-            resolve(req.result.candles);
+            const clean = this.sanitize(req.result.candles);
+            resolve(clean.length > 0 ? clean : null);
           } else {
             resolve(null);
           }
@@ -72,7 +104,8 @@ class CandleCacheDB {
 
   async saveCandles(pair, interval, candles) {
     await this.readyPromise;
-    if (!this.db || !candles || candles.length === 0) return;
+    const cleanIncoming = this.sanitize(candles);
+    if (!this.db || cleanIncoming.length === 0) return cleanIncoming;
 
     const key = this.getKey(pair, interval);
     return new Promise((resolve) => {
@@ -83,12 +116,9 @@ class CandleCacheDB {
         // Fetch existing to merge seamlessly
         const getReq = store.get(key);
         getReq.onsuccess = () => {
-          let merged = candles;
+          let merged = cleanIncoming;
           if (getReq.result && Array.isArray(getReq.result.candles)) {
-            const map = new Map();
-            getReq.result.candles.forEach((c) => map.set(c.time, c));
-            candles.forEach((c) => map.set(c.time, c));
-            merged = Array.from(map.values()).sort((a, b) => a.time - b.time);
+            merged = this.sanitize([...getReq.result.candles, ...cleanIncoming]);
           }
 
           store.put({
@@ -103,13 +133,13 @@ class CandleCacheDB {
           store.put({
             key: key,
             updatedAt: Date.now(),
-            candles: candles,
+            candles: cleanIncoming,
           });
-          resolve(candles);
+          resolve(cleanIncoming);
         };
       } catch (err) {
         console.warn("Error writing to IndexedDB:", err);
-        resolve(candles);
+        resolve(cleanIncoming);
       }
     });
   }

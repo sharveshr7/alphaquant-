@@ -1,14 +1,13 @@
 /**
- * Chat Controller - AI Market Assistant
+ * AlphaQuant Pro - AI Market Intelligence Chat Controller
  */
 
 class ChatAssistant {
   constructor() {
-    this.messagesContainer = document.getElementById('chat-messages');
-    this.chatForm = document.getElementById('chat-form');
-    this.chatInput = document.getElementById('chat-input');
-    this.modelTag = document.getElementById('ai-model-tag');
-    this.sendBtn = document.getElementById('chat-send');
+    this.messagesContainer = document.getElementById("chat-messages-container") || document.getElementById("chat-messages");
+    this.chatForm = document.getElementById("chat-form");
+    this.chatInput = document.getElementById("chat-input-field") || document.getElementById("chat-input");
+    this.sendBtn = document.getElementById("btn-chat-send") || document.getElementById("chat-send");
     this.isLoading = false;
 
     this.init();
@@ -16,17 +15,30 @@ class ChatAssistant {
 
   init() {
     if (this.chatForm) {
-      this.chatForm.addEventListener('submit', (e) => {
+      this.chatForm.addEventListener("submit", (e) => {
         e.preventDefault();
         this.handleSend();
       });
     }
 
+    if (this.sendBtn && !this.chatForm) {
+      this.sendBtn.addEventListener("click", () => this.handleSend());
+    }
+
+    if (this.chatInput) {
+      this.chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          this.handleSend();
+        }
+      });
+    }
+
     // Quick prompt chips
-    document.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const query = btn.getAttribute('data-query');
-        if (query) {
+    document.querySelectorAll(".chip-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const query = btn.getAttribute("data-query");
+        if (query && this.chatInput) {
           this.chatInput.value = query;
           this.handleSend();
         }
@@ -35,29 +47,35 @@ class ChatAssistant {
   }
 
   async handleSend() {
+    if (!this.chatInput) return;
     const text = this.chatInput.value.trim();
     if (!text || this.isLoading) return;
 
-    this.chatInput.value = '';
-    this.appendMessage('user', text);
+    this.chatInput.value = "";
+    this.appendMessage("user", text);
     this.isLoading = true;
-    this.sendBtn.disabled = true;
-    this.sendBtn.textContent = '...';
 
-    // Show loading bubble
-    const loadingBubble = document.createElement('div');
-    loadingBubble.className = 'message-bubble ai loading';
-    loadingBubble.innerHTML = '<span>⚡ AlphaQuant thinking...</span>';
-    this.messagesContainer.appendChild(loadingBubble);
-    this.scrollToBottom();
+    if (this.sendBtn) {
+      this.sendBtn.disabled = true;
+      this.sendBtn.textContent = "...";
+    }
+
+    // Show thinking bubble
+    const loadingBubble = document.createElement("div");
+    loadingBubble.className = "message-bubble ai loading";
+    loadingBubble.innerHTML = "<em>⚡ AlphaQuant thinking...</em>";
+    if (this.messagesContainer) {
+      this.messagesContainer.appendChild(loadingBubble);
+      this.scrollToBottom();
+    }
 
     try {
-      const activePair = window.appState ? window.appState.pair : 'BTC/USDT';
-      const activeInterval = window.appState ? window.appState.interval : '15m';
+      const activePair = window.appState ? (window.appState.currentPair || window.appState.pair || "BTC/USDT") : "BTC/USDT";
+      const activeInterval = window.appState ? (window.appState.currentInterval || window.appState.interval || "15m") : "15m";
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
           pair: activePair,
@@ -66,37 +84,44 @@ class ChatAssistant {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        throw new Error(`Server returned status ${response.status}`);
       }
 
       const data = await response.json();
       loadingBubble.remove();
 
-      // Render Markdown response
-      this.appendMessage('ai', data.response, data);
-
-      if (data.model_used && this.modelTag) {
-        this.modelTag.textContent = data.model_used;
-      }
-
+      this.appendMessage("ai", data.response || "No response received.", data);
     } catch (err) {
       loadingBubble.remove();
-      this.appendMessage('ai', `⚠️ **Connection Error**: Unable to reach backend AI assistant (${err.message}). Check that the local server is running on http://127.0.0.1:8000.`);
+      this.appendMessage(
+        "ai",
+        `⚠️ **Connection Note**: AI assistant response could not be loaded (${err.message}). Ensure backend server is active on http://127.0.0.1:8000.`
+      );
     } finally {
       this.isLoading = false;
-      this.sendBtn.disabled = false;
-      this.sendBtn.textContent = 'Send';
-      this.chatInput.focus();
+      if (this.sendBtn) {
+        this.sendBtn.disabled = false;
+        this.sendBtn.textContent = "Send";
+      }
+      if (this.chatInput) {
+        this.chatInput.focus();
+      }
     }
   }
 
   appendMessage(role, text, metadata = null) {
-    const bubble = document.createElement('div');
+    if (!this.messagesContainer) return;
+
+    const bubble = document.createElement("div");
     bubble.className = `message-bubble ${role}`;
 
-    if (role === 'ai') {
+    if (role === "ai") {
       try {
-        bubble.innerHTML = typeof marked !== 'undefined' ? marked.parse(text) : text.replace(/\n/g, '<br>');
+        const parsed = typeof marked !== "undefined" ? marked.parse(text) : text.replace(/\n/g, "<br>");
+        const modelTag = metadata && metadata.model_used
+          ? `<div style="margin-top:6px; font-size:10px; color:var(--blue); font-family:var(--font-mono);">⚡ ${metadata.model_used}</div>`
+          : "";
+        bubble.innerHTML = parsed + modelTag;
       } catch (e) {
         bubble.innerText = text;
       }
@@ -109,7 +134,9 @@ class ChatAssistant {
   }
 
   scrollToBottom() {
-    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    if (this.messagesContainer) {
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
   }
 }
 

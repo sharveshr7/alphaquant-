@@ -360,15 +360,26 @@ class SupplyDemandEngine:
         val1: float,
         val2: float,
         timeframe: str = "15m",
+        htf_candles: list[dict] | None = None,
+        zone_id: str | None = None,
+        overlapping_zones_count: int = 0,
     ) -> dict:
-        """Evaluates a user-drawn manual Supply or Demand rectangle zone."""
+        """Evaluates a user-drawn manual Supply or Demand rectangle zone across all 12 institutional criteria."""
         if not candles or len(candles) < 15:
-            return {"error": "Need at least 15 candles for zone evaluation"}
+            return {
+                "error": "Insufficient candle data for zone evaluation (minimum 15 required)",
+                "classification": "INSUFFICIENT DATA",
+                "classification_reason": "Less than 15 historical candles available to analyze zone origin and mitigation.",
+            }
 
-        current_price = float(candles[-1]["close"])
         df = pd.DataFrame(candles)
+        for col in ["open", "high", "low", "close", "volume"]:
+            df[col] = pd.to_numeric(df[col])
+
+        current_price = float(df["close"].iloc[-1])
         atr_series = self.calculate_atr(df)
-        current_atr = float(atr_series.iloc[-1]) if not atr_series.empty else (current_price * 0.005)
+        current_atr = float(atr_series.iloc[-1]) if not atr_series.empty and not np.isnan(atr_series.iloc[-1]) else (current_price * 0.005)
+        df["vol_sma"] = df["volume"].rolling(20).mean().fillna(df["volume"])
 
         # Standardize proximal and distal based on zone type
         z_type = zone_type.upper().strip()
@@ -380,95 +391,405 @@ class SupplyDemandEngine:
             proximal = min(val1, val2)  # Bottom edge of supply zone (first entry)
             distal = max(val1, val2)    # Top edge of supply zone (structural invalidation)
 
-        zone_height = abs(proximal - distal)
+        zone_height = max(abs(proximal - distal), 1e-6)
         zone_height_pct = round((zone_height / max(current_price, 1e-4)) * 100, 2)
         height_in_atr = round(zone_height / max(current_atr, 1e-4), 2)
 
-        # Retest and mitigation analysis
-        retests = 0
+        # 1. Zone Origin & Base Candle Structure Search
+        # Locate the historical candle window where price was inside this zone
+        in_zone_mask = (df["low"] <= max(proximal, distal)) & (df["high"] >= min(proximal, distal))
+        zone_indices = df.index[in_zone_mask].tolist()
+
+        origin_idx = zone_indices[0] if zone_indices else max(0, len(df) - 30)
+        # Look for the last consolidation base before departure
+        base_candidates = [idx for idx in zone_indices if idx < len(df) - 2]
+        base_idx = base_candidates[-1] if base_candidates else origin_idx
+
+        # Measure base candles (small bodies inside range)
+        base_count = 1
+        b_i = base_idx
+        while b_i > 0 and base_count < self.max_base_candles:
+            b_range = df["high"].iloc[b_i] - df["low"].iloc[b_i]
+            b_body = abs(df["close"].iloc[b_i] - df["open"].iloc[b_i])
+            if b_range > 0 and (b_body / b_range) < 0.65:
+                base_count += 1
+                b_i -= 1
+            else:
+                break
+
+        # 2. Strength of Departure & Impulsive Displacement
+        departure_idx = min(base_idx + 1, len(df) - 1)
+        dep_candle = df.iloc[departure_idx]
+        dep_body = abs(dep_candle["close"] - dep_candle["open"])
+        dep_atr = max(float(atr_series.iloc[departure_idx]) if not atr_series.empty else current_atr, 1e-6)
+        displacement_factor = round(dep_body / dep_atr, 2)
+
+        # Also inspect cumulative 3-bar departure impulse
+        three_bar_end = min(departure_idx + 3, len(df))
+        cum_move = abs(df["close"].iloc[three_bar_end - 1] - df["open"].iloc[departure_idx])
+        cum_displacement = round(cum_move / dep_atr, 2)
+        is_impulsive = displacement_factor >= 1.2 or cum_displacement >= 2.0
+
+        # 3. Volume Confirmation
+        dep_vol = float(dep_candle["volume"])
+        dep_sma = float(df["vol_sma"].iloc[departure_idx])
+        volume_ratio = round(dep_vol / max(dep_sma, 1e-4), 2)
+        volume_confirmed = volume_ratio >= 1.25
+
+        # 4. Liquidity Sweep at Zone Origin
+        # Check if the base candle wicked beyond the previous 10-bar swing high/low
+        liquidity_sweep = False
+        prior_window = df.iloc[max(0, base_idx - 10) : base_idx]
+        if not prior_window.empty:
+            if z_type == "DEMAND":
+                prior_lowest = prior_window["low"].min()
+                if df["low"].iloc[base_idx] < prior_lowest and df["close"].iloc[base_idx] > prior_lowest:
+                    liquidity_sweep = True
+            else:
+                prior_highest = prior_window["high"].max()
+                if df["high"].iloc[base_idx] > prior_highest and df["close"].iloc[base_idx] < prior_highest:
+                    liquidity_sweep = True
+
+        # 5. BOS / CHoCH Confirmation on Departure
+        bos_confirmed = False
+        choch_confirmed = False
+        if not prior_window.empty:
+            if z_type == "DEMAND":
+                prior_swing_high = prior_window["high"].max()
+                subsequent_highs = df["high"].iloc[departure_idx : min(departure_idx + 15, len(df))]
+                if not subsequent_highs.empty and subsequent_highs.max() > prior_swing_high:
+                    bos_confirmed = True
+                    choch_confirmed = True
+            else:
+                prior_swing_low = prior_window["low"].min()
+                subsequent_lows = df["low"].iloc[departure_idx : min(departure_idx + 15, len(df))]
+                if not subsequent_lows.empty and subsequent_lows.min() < prior_swing_low:
+                    bos_confirmed = True
+                    choch_confirmed = True
+
+        # 6. Touches & Mitigation Tracking
+        # Scan subsequent candles after departure
+        subsequent_candles = df.iloc[departure_idx + 1 :]
+        retest_count = 0
         deepest_mitigation = 0.0
         is_breached = False
+        bounce_count = 0
 
-        # Scan recent candles to check zone interaction
-        for c in candles[-50:]:
-            high = float(c["high"])
-            low = float(c["low"])
-            close = float(c["close"])
+        for _, row in subsequent_candles.iterrows():
+            c_high = float(row["high"])
+            c_low = float(row["low"])
+            c_close = float(row["close"])
 
             if z_type == "DEMAND":
-                if low <= proximal and high >= distal:
-                    retests += 1
-                    penetration = (proximal - low) / max(zone_height, 1e-4)
+                # Price touched into demand
+                if c_low <= proximal and c_high >= distal:
+                    retest_count += 1
+                    penetration = (proximal - c_low) / zone_height
                     deepest_mitigation = max(deepest_mitigation, penetration * 100.0)
-                if close < distal:
+                    if c_close > proximal:
+                        bounce_count += 1
+                if c_close < distal:
                     is_breached = True
             else:  # SUPPLY
-                if high >= proximal and low <= distal:
-                    retests += 1
-                    penetration = (high - proximal) / max(zone_height, 1e-4)
+                # Price touched into supply
+                if c_high >= proximal and c_low <= distal:
+                    retest_count += 1
+                    penetration = (c_high - proximal) / zone_height
                     deepest_mitigation = max(deepest_mitigation, penetration * 100.0)
-                if close > distal:
+                    if c_close < proximal:
+                        bounce_count += 1
+                if c_close > distal:
                     is_breached = True
 
         deepest_mitigation = round(min(deepest_mitigation, 100.0), 1)
 
-        # Lifecycle State
-        if is_breached or deepest_mitigation >= 100.0:
-            lifecycle = "INVALIDATED"
-            score = 15
-            classification = "INVALID/MITIGATED ZONE"
-        elif deepest_mitigation >= 65.0:
-            lifecycle = "DEEPLY_MITIGATED"
-            score = 45
-            classification = "WEAK/COUNTER-TREND ZONE"
-        elif retests > 0:
-            lifecycle = "PARTIALLY_TESTED"
-            score = 75
-            classification = "NEEDS CONFIRMATION"
-        else:
-            lifecycle = "FRESH"
-            score = 92
-            classification = "VALID HIGH-PROBABILITY ZONE"
+        # 7. Higher-Timeframe Alignment
+        htf_bias = "NEUTRAL"
+        if htf_candles and len(htf_candles) >= 20:
+            htf_closes = [float(c["close"]) for c in htf_candles]
+            htf_ema20 = float(pd.Series(htf_closes).ewm(span=20).mean().iloc[-1])
+            htf_ema50 = float(pd.Series(htf_closes).ewm(span=50).mean().iloc[-1])
+            if htf_closes[-1] > htf_ema20 > htf_ema50:
+                htf_bias = "BULLISH"
+            elif htf_closes[-1] < htf_ema20 < htf_ema50:
+                htf_bias = "BEARISH"
+        htf_aligned = (z_type == "DEMAND" and htf_bias == "BULLISH") or (z_type == "SUPPLY" and htf_bias == "BEARISH") or htf_bias == "NEUTRAL"
 
-        # Distance from current price
+        # 8. Multi-Label Classification
+        # Required categories: STRONG, VALID, WEAK, TOO WIDE, OVERLAPPING, FRESH, TESTED, PARTIALLY MITIGATED, FULLY MITIGATED, INVALIDATED, INSUFFICIENT DATA
+        labels: list[str] = []
+        classification = "VALID"
+        reason_parts: list[str] = []
+
+        if is_breached or deepest_mitigation >= 100.0:
+            classification = "INVALIDATED"
+            labels.append("INVALIDATED")
+            reason_parts.append(f"Price decisively closed beyond structural distal boundary (${distal:,.2f}) with {deepest_mitigation}% mitigation.")
+        elif deepest_mitigation >= 90.0:
+            classification = "FULLY MITIGATED"
+            labels.append("FULLY MITIGATED")
+            reason_parts.append(f"Zone liquidity depleted ({deepest_mitigation}% depth penetration across {retest_count} touches).")
+        elif height_in_atr > 3.5:
+            classification = "TOO WIDE"
+            labels.append("TOO WIDE")
+            reason_parts.append(f"Zone thickness ({height_in_atr:.1f}x ATR, {zone_height_pct}%) is excessively wide for safe risk/reward positioning.")
+        elif overlapping_zones_count > 0:
+            labels.append("OVERLAPPING")
+            reason_parts.append(f"Zone overlaps with {overlapping_zones_count} other drawn {z_type.lower()} zone(s).")
+
+        if classification not in ("INVALIDATED", "FULLY MITIGATED", "TOO WIDE"):
+            if deepest_mitigation == 0.0:
+                labels.append("FRESH")
+                if displacement_factor >= 1.5 and volume_confirmed and (bos_confirmed or liquidity_sweep):
+                    classification = "STRONG"
+                    labels.append("STRONG")
+                    reason_parts.append(f"Virgin fresh {z_type} zone with explosive {displacement_factor}x ATR displacement, {volume_ratio}x volume confirmation, and structural break.")
+                else:
+                    classification = "FRESH"
+                    reason_parts.append(f"Virgin untouched {z_type} zone with no prior retests ({displacement_factor}x ATR departure).")
+            elif deepest_mitigation <= 40.0:
+                labels.append("TESTED")
+                labels.append("PARTIALLY MITIGATED")
+                if bounce_count >= 1 and displacement_factor >= 1.2:
+                    classification = "VALID"
+                    labels.append("VALID")
+                    reason_parts.append(f"Valid tested zone ({deepest_mitigation}% mitigation, {retest_count} touch(es)) showing clear rejection wicks.")
+                else:
+                    classification = "PARTIALLY MITIGATED"
+                    reason_parts.append(f"Partially mitigated ({deepest_mitigation}% penetration) with moderate institutional response.")
+            elif deepest_mitigation < 90.0:
+                labels.append("PARTIALLY MITIGATED")
+                if displacement_factor < 1.0 or not volume_confirmed:
+                    classification = "WEAK"
+                    labels.append("WEAK")
+                    reason_parts.append(f"Weak zone: deep penetration ({deepest_mitigation}%) combined with sub-ATR departure or lack of volume confirmation.")
+                else:
+                    classification = "PARTIALLY MITIGATED"
+                    reason_parts.append(f"Deeply mitigated zone ({deepest_mitigation}% penetration, {retest_count} touches); requires lower-timeframe confirmation.")
+
+        # If overlapping was flagged and not already assigned
+        if overlapping_zones_count > 0 and classification in ("VALID", "FRESH"):
+            labels.append("OVERLAPPING")
+
+        classification_reason = " ".join(reason_parts) if reason_parts else f"{classification} {z_type} zone evaluated on closed candle history."
+
+        # Quantitative Score (0 to 100)
+        score = 50
+        if classification == "STRONG":
+            score = 92
+        elif classification == "FRESH":
+            score = 85
+        elif classification == "VALID":
+            score = 75
+        elif classification == "TESTED":
+            score = 70
+        elif classification == "PARTIALLY MITIGATED":
+            score = 55
+        elif classification == "TOO WIDE":
+            score = 40
+        elif classification == "WEAK":
+            score = 35
+        elif classification in ("FULLY MITIGATED", "INVALIDATED"):
+            score = 15
+
+        if liquidity_sweep:
+            score = min(100, score + 8)
+        if bos_confirmed:
+            score = min(100, score + 8)
+        if volume_confirmed:
+            score = min(100, score + 6)
+        if htf_aligned:
+            score = min(100, score + 5)
+        score = max(5, min(100, score))
+
+        # Trade Plan Levels
+        prec = 6 if current_price < 0.01 else (4 if current_price < 1 else (3 if current_price < 50 else 2))
         if z_type == "DEMAND":
             distance_pct = round(((current_price - proximal) / current_price) * 100, 2)
-            equilibrium = round((proximal + distal) / 2.0, 2)
-            structural_sl = round(distal - (zone_height * 0.20), 2)
+            equilibrium = round((proximal + distal) / 2.0, prec)
+            structural_sl = round(distal - (zone_height * 0.20 + current_atr * 0.25), prec)
             risk = max(current_price - structural_sl, zone_height)
-            tp1 = round(current_price + (risk * 1.5), 2)
-            tp2 = round(current_price + (risk * 2.5), 2)
-            invalidation = round(distal, 2)
+            tp1 = round(current_price + (risk * 1.5), prec)
+            tp2 = round(current_price + (risk * 2.5), prec)
+            tp3 = round(current_price + (risk * 4.0), prec)
+            invalidation = round(distal, prec)
+            recommended_entry = round(proximal if "FRESH" in labels else equilibrium, prec)
         else:
             distance_pct = round(((proximal - current_price) / current_price) * 100, 2)
-            equilibrium = round((proximal + distal) / 2.0, 2)
-            structural_sl = round(distal + (zone_height * 0.20), 2)
+            equilibrium = round((proximal + distal) / 2.0, prec)
+            structural_sl = round(distal + (zone_height * 0.20 + current_atr * 0.25), prec)
             risk = max(structural_sl - current_price, zone_height)
-            tp1 = round(current_price - (risk * 1.5), 2)
-            tp2 = round(current_price - (risk * 2.5), 2)
-            invalidation = round(distal, 2)
+            tp1 = round(current_price - (risk * 1.5), prec)
+            tp2 = round(current_price - (risk * 2.5), prec)
+            tp3 = round(current_price - (risk * 4.0), prec)
+            invalidation = round(distal, prec)
+            recommended_entry = round(proximal if "FRESH" in labels else equilibrium, prec)
 
         return {
+            "zone_id": zone_id,
             "zone_type": z_type,
             "timeframe": timeframe,
-            "proximal": round(proximal, 2),
-            "distal": round(distal, 2),
+            "proximal": round(proximal, prec),
+            "distal": round(distal, prec),
             "equilibrium": equilibrium,
-            "zone_height": round(zone_height, 2),
+            "zone_height": round(zone_height, prec),
             "zone_height_pct": zone_height_pct,
             "height_in_atr": height_in_atr,
-            "current_price": round(current_price, 2),
+            "current_price": round(current_price, prec),
             "distance_pct": distance_pct,
-            "retest_count": retests,
+            "retest_count": retest_count,
+            "bounce_count": bounce_count,
             "mitigation_pct": deepest_mitigation,
-            "lifecycle_state": lifecycle,
+            "lifecycle_state": "INVALIDATED" if is_breached else ("FULLY_MITIGATED" if deepest_mitigation >= 90 else ("FRESH" if deepest_mitigation == 0 else "PARTIALLY_TESTED")),
             "quality_score": score,
             "classification": classification,
-            "recommended_entry": round(proximal if lifecycle == "FRESH" else equilibrium, 2),
+            "labels": labels,
+            "classification_reason": classification_reason,
+            "evaluation_criteria": {
+                "base_candle_structure": f"{base_count} consolidation candles at origin",
+                "departure_strength": f"{displacement_factor}x ATR displacement ({'Impulsive' if is_impulsive else 'Gradual'})",
+                "impulsive_price_movement": is_impulsive,
+                "previous_touches": retest_count,
+                "freshness": "VIRGIN_FRESH" if deepest_mitigation == 0 else f"{deepest_mitigation}% MITIGATED",
+                "mitigation_status": f"{deepest_mitigation}% penetration depth",
+                "liquidity_sweep": liquidity_sweep,
+                "bos_confirmation": bos_confirmed,
+                "choch_confirmation": choch_confirmed,
+                "volume_confirmation": f"{volume_ratio}x 20-period SMA volume ({'Confirmed' if volume_confirmed else 'Unconfirmed'})",
+                "higher_timeframe_alignment": f"{htf_bias} ({'Aligned' if htf_aligned else 'Unaligned'})",
+                "zone_width_relative_to_atr": f"{height_in_atr}x ATR ({'Acceptable' if height_in_atr <= 3.5 else 'Too Wide'})",
+                "historical_reactions": f"{bounce_count} clean rejection bounces",
+            },
+            "recommended_entry": recommended_entry,
             "structural_sl": structural_sl,
             "tp1": tp1,
             "tp2": tp2,
+            "tp3": tp3,
             "invalidation_level": invalidation,
+        }
+
+    def analyze_manual_zones_and_overlaps(
+        self,
+        candles: list[dict],
+        manual_drawings: list[dict],
+        timeframe: str = "15m",
+        htf_candles: list[dict] | None = None,
+    ) -> dict:
+        """Evaluates all manual user zones and performs intelligent overlap & consolidation analysis."""
+        if not manual_drawings:
+            return {
+                "zones": [],
+                "overlaps": [],
+                "overlap_count": 0,
+                "summary": "No manual zones drawn on current chart.",
+            }
+
+        # Filter for user supply and demand drawings
+        valid_zones: list[dict] = []
+        for d in manual_drawings:
+            tool = (d.get("tool") or "").lower()
+            z_type = (d.get("zoneType") or "").upper()
+            if tool in ("demand_zone", "supply_zone") or z_type in ("DEMAND", "SUPPLY"):
+                top = d.get("priceTop", max(float(d.get("price1", 0) or 0), float(d.get("price2", 0) or 0)))
+                bot = d.get("priceBottom", min(float(d.get("price1", 0) or 0), float(d.get("price2", 0) or 0)))
+                if top and bot and top > bot:
+                    valid_zones.append({
+                        "id": d.get("id", f"draw_{int(time.time()*1000)}"),
+                        "zone_type": "DEMAND" if ("demand" in tool or z_type == "DEMAND") else "SUPPLY",
+                        "top": float(top),
+                        "bottom": float(bot),
+                        "raw_drawing": d,
+                    })
+
+        if not valid_zones:
+            return {"zones": [], "overlaps": [], "overlap_count": 0, "summary": "No manual supply or demand zones found."}
+
+        # Step 1: Detect overlaps among zones of the same type
+        overlaps: list[dict] = []
+        overlap_counts = {z["id"]: 0 for z in valid_zones}
+
+        for i in range(len(valid_zones)):
+            for j in range(i + 1, len(valid_zones)):
+                z1 = valid_zones[i]
+                z2 = valid_zones[j]
+                if z1["zone_type"] == z2["zone_type"]:
+                    # Overlap interval: [max(bot1, bot2), min(top1, top2)]
+                    overlap_bot = max(z1["bottom"], z2["bottom"])
+                    overlap_top = min(z1["top"], z2["top"])
+                    if overlap_top > overlap_bot:
+                        overlap_height = overlap_top - overlap_bot
+                        h1 = z1["top"] - z1["bottom"]
+                        h2 = z2["top"] - z2["bottom"]
+                        pct1 = round((overlap_height / max(h1, 1e-6)) * 100, 1)
+                        pct2 = round((overlap_height / max(h2, 1e-6)) * 100, 1)
+                        max_pct = max(pct1, pct2)
+
+                        overlap_counts[z1["id"]] += 1
+                        overlap_counts[z2["id"]] += 1
+
+                        is_duplicate = max_pct >= 75.0
+                        broader_range = [min(z1["bottom"], z2["bottom"]), max(z1["top"], z2["top"])]
+
+                        overlaps.append({
+                            "zone_id_1": z1["id"],
+                            "zone_id_2": z2["id"],
+                            "zone_type": z1["zone_type"],
+                            "overlap_price_range": [round(overlap_bot, 4), round(overlap_top, 4)],
+                            "overlap_height": round(overlap_height, 4),
+                            "overlap_pct_z1": pct1,
+                            "overlap_pct_z2": pct2,
+                            "is_duplicate_or_nearly_identical": is_duplicate,
+                            "consolidation_suggestion": {
+                                "action": "MERGE_INTO_BROADER_AREA" if not is_duplicate else "REMOVE_DUPLICATE_KEEP_STRONGER",
+                                "broader_range": [round(broader_range[0], 4), round(broader_range[1], 4)],
+                                "recommendation": (
+                                    f"Suggest merging overlapping {z1['zone_type'].lower()} zones into broader range "
+                                    f"[${broader_range[0]:,.2f} - ${broader_range[1]:,.2f}] or keeping the stronger historical POI."
+                                ),
+                            },
+                        })
+
+        # Step 2: Individually evaluate each zone
+        evaluated_zones: list[dict] = []
+        for vz in valid_zones:
+            ev = self.evaluate_manual_zone(
+                candles=candles,
+                zone_type=vz["zone_type"],
+                val1=vz["top"],
+                val2=vz["bottom"],
+                timeframe=timeframe,
+                htf_candles=htf_candles,
+                zone_id=vz["id"],
+                overlapping_zones_count=overlap_counts.get(vz["id"], 0),
+            )
+            ev["original_drawing_id"] = vz["id"]
+            evaluated_zones.append(ev)
+
+        # Step 3: Compare historical evidence for each overlap pair
+        eval_map = {z["zone_id"]: z for z in evaluated_zones}
+        for ov in overlaps:
+            z1_eval = eval_map.get(ov["zone_id_1"], {})
+            z2_eval = eval_map.get(ov["zone_id_2"], {})
+
+            s1 = z1_eval.get("quality_score", 50)
+            s2 = z2_eval.get("quality_score", 50)
+            stronger_id = ov["zone_id_1"] if s1 >= s2 else ov["zone_id_2"]
+            weaker_id = ov["zone_id_2"] if s1 >= s2 else ov["zone_id_1"]
+
+            reason = (
+                f"Zone {stronger_id} exhibits stronger technical evidence (Score {max(s1, s2)}/100 vs {min(s1, s2)}/100) "
+                f"due to superior departure displacement and freshness. "
+                f"{'Identical duplicate zone detected; suggest consolidating.' if ov['is_duplicate_or_nearly_identical'] else 'Partial overlap detected; keep separate for precise entries or treat as unified POI cluster.'}"
+            )
+            ov["stronger_zone_id"] = stronger_id
+            ov["weaker_zone_id"] = weaker_id
+            ov["assessment_reason"] = reason
+
+        return {
+            "zones": evaluated_zones,
+            "overlaps": overlaps,
+            "overlap_count": len(overlaps),
+            "summary": f"Evaluated {len(evaluated_zones)} manual zones with {len(overlaps)} overlapping relationship(s).",
         }
 
 

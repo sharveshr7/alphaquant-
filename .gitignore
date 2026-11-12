@@ -59,13 +59,23 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 
-# Local backups and venv
+# Local backups, runtime, and venv
 .venv/
+runtime/cache/
+runtime/logs/
+runtime/temporary/
 temp_chrome/
+temp_cdp/
+temp_chrome2/
 dashboard_backup_*
 dashboard/backup_*
+archive/
+
+# Media exceptions
 *.png
 *.jpg
+!screenshots/*.png
+!screenshots/*.jpg
 
 .tox/
 .coverage
@@ -128,5 +138,9 @@ target/
 !config_examples/config_full.example.json
 !config_examples/config_kraken.example.json
 !config_examples/config_freqai.example.json
+!config/config_examples/config_binance.example.json
+!config/config_examples/config_full.example.json
+!config/config_examples/config_kraken.example.json
+!config/config_examples/config_freqai.example.json
 
 docker-compose-*.yml
